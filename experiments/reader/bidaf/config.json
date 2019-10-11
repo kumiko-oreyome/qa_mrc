@@ -1,0 +1,14 @@
+{
+    "VOCAB_DIR":"./data/bidaf/vocab/",
+    "HIDDEN_SIZE":150,
+    "DROPOUT_PROB":1.0,
+    "ALGO":"BIDAF",
+    "MAX_PASSAGE_NUM":5,
+    "MAX_Q_LEN":60,
+    "MAX_PASSAGE_LEN":500,
+    "MAX_A_LEN" : 200,
+    "BATCH_SIZE":16,
+    "EPOCH":10
+}
+
+

@@ -1,0 +1,12 @@
+{
+    "BERT_SERIALIZATION_DIR":"./pretrained/chinese_wwm_ext_pytorch",
+    "TRAIN_PATH":"./data/trainset/search.train.json",
+    "DEV_PATH":"./data/devset/search.dev.json",
+    "SAMPLE_STG_NAME":"answer_doc",
+    "NEG_SAMPLE_NUM":1,
+    "NUM_FN_NAME":"pointwise",
+    "MAX_SEQ_LEN":512,
+    "MAX_PASSAGE_LEN":256,
+    "BATCH_SIZE":16,
+    "EPOCH":10
+}

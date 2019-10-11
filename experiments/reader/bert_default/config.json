@@ -1,0 +1,10 @@
+{
+    "BERT_SERIALIZATION_DIR":"./pretrained/chinese_wwm_ext_pytorch",
+    "TRAIN_PATH":"./data/trainset/search.train.json",
+    "DEV_PATH":"./data/devset/search.dev.json",
+    "MAX_SEQ_LEN":512,
+    "MAX_PASSAGE_LEN":256,
+    "MAX_QUERY_LEN" : 60,
+    "BATCH_SIZE":16,
+    "EPOCH":10
+}
