@@ -1,0 +1,15 @@
+EVAL_FILE:./data/devset/search.dev.json
+SAMPLE_MOTHOD:answer_doc
+NEG_K:1
+LABEL_POLICY:answer_docs
+build model
+loading archive file ./pretrained/chinese_wwm_ext_pytorch
+load state_dict./pretrained/chinese_wwm_ext_pytorch/pytorch_model.bin
+load examples
+evaluating
+load 0th line
+load 2000th line
+load 4000th line
+total 8978 examples
+batch size is 128
+predict on batch 0 ....

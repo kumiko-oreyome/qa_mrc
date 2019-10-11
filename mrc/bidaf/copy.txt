@@ -1,0 +1,44 @@
+python -u run.py --train --algo BIDAF --epochs 10 --train_files=../data/preprocessed/trainset/search.train.json  --dev_files=../data/preprocessed/devset/search.dev.json --log_path=log.txt
+
+
+python -u run.py --train --algo BIDAF --epochs 10 --train_files=../data/preprocessed/trainset/search.train.json+../data/preprocessed/trainset/zhidao.train.json --dev_files=../data/preprocessed/devset/zhidao.train.json+../data/preprocessed/devset/search.train.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/' > all.log
+
+python -u run.py --train --algo BIDAF --epochs 10 --train_files=../data/preprocessed/trainset/search.train.30000.json  --dev_files=../data/preprocessed/devset/search.dev.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_30000/' --log_path=30000.log
+
+python run.py --evaluate --algo BIDAF  --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_all/'
+ 
+
+
+python  run.py --prepare --train_files=../data/preprocessed/trainset/search.train.json 
+python  run.py --prepare --train_files=../data/preprocessed/trainset/search.train.30000.json 
+
+
+
+python run.py --demo --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_all/'
+
+
+
+cd s3fs;cd uabharuhi;cd Dureader_official;cd tensorflow
+
+
+python -u run.py --train --algo BIDAF --epochs 10 --train_files=../data/preprocessed/trainset/search.train.json --model_dir=../data/models/bidaf_all_10/ --dev_files=../data/preprocessed/devset/search.dev.json    > out.txt
+
+
+
+
+python -u run.py --train --algo BIDAF --epochs 10 --train_files ../data/preprocessed/trainset/search.train.json ../data/preprocessed/trainset/zhidao.train.json --dev_files ../data/preprocessed/devset/zhidao.dev.json ../data/preprocessed/devset/search.dev.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/' > all.log
+
+
+
+python -u run.py --evaluate --algo BIDAF --dev_files ../data/preprocessed/devset/search.dev.json   ../data/preprocessed/devset/zhidao.dev.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/' --result_dir=./data/results/20w/
+
+python -u run.py --predict --algo BIDAF --test_files ../data/preprocessed/testset/search.test.json  ../data/preprocessed/testset/zhidao.test.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/' --result_dir=./data/results/20w/
+
+python -u run.py --demo --algo BIDAF  --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/'
+
+python -u run.py --evaluate --algo BIDAF --test_files ../data/preprocessed/testset/search.test.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/'
+python -u run.py --evaluate --algo BIDAF --test_files ../data/preprocessed/testset/search.test.json --vocab_dir='../data/vocab/vocab_all/' --model_dir='../data/models/bidaf_20w/'
+
+
+
+

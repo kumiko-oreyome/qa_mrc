@@ -1,0 +1,9 @@
+EVAL_FILE:./data/devset/search.dev.json
+SAMPLE_MOTHOD:None
+NEG_K:9
+LABEL_POLICY:answer_docs
+build model
+loading archive file ./pretrained/chinese_wwm_ext_pytorch
+load state_dict./pretrained/chinese_wwm_ext_pytorch/pytorch_model.bin
+Dureader : total 23107 raw samples
+{'passage': '风水学是说明环境的:这其中包括地理环境,和人际环境。你说的鸟屎掉落,属于有异动型的变化,所以这个需要用卦来占才可以的,不是固定的结果', 'passage_id': 0, 'doc_id': 1, 'question': '鸟屎掉衣服上吉不吉利', 'answer_docs': [], 'question_id': 181585, 'question_type': 'YES_NO'}

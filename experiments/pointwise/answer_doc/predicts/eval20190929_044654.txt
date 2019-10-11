@@ -1,0 +1,10 @@
+EVAL_FILE:./data/demo/devset/search.dev.2.json
+LABEL_POLICY:answer_docs
+load examples
+load 0th line
+total 66 examples
+build model
+loading archive file ./pretrained/chinese_wwm_ext_pytorch
+load state_dict./pretrained/chinese_wwm_ext_pytorch/pytorch_model.bin
+load 0th line
+total 66 examples

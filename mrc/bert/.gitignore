@@ -1,0 +1,12 @@
+data/
+log
+*.pyc
+*__pycache__
+*.data
+*.json
+model_dir/
+.idea
+
+
+
+

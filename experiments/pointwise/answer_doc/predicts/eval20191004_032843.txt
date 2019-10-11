@@ -1,0 +1,19 @@
+EVAL_FILE:./data/demo/devset/search.dev.2.json
+LABEL_POLICY:answer_docs
+load examples
+load 0th line
+total 66 examples
+build model
+loading archive file ./pretrained/chinese_wwm_ext_pytorch
+load state_dict./pretrained/chinese_wwm_ext_pytorch/pytorch_model.bin
+load 0th line
+total 66 examples
+batch size is 128
+0,66
+predict on batch 0
+0,66
+predict on batch 0
+- - - - - - 
+metrics
+accuracy-->0.652
+precision-->0.000

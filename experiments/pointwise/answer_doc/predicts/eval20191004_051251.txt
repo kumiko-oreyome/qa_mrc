@@ -1,0 +1,4 @@
+EVAL_FILE:./data/demo/devset/search.dev.json
+SAMPLE_MOTHOD:answer_doc
+NEG_K:1
+LABEL_POLICY:answer_docs
