@@ -6,5 +6,6 @@
     "MAX_PASSAGE_LEN":256,
     "MAX_QUERY_LEN" : 60,
     "BATCH_SIZE":16,
-    "EPOCH":10
+    "EPOCH":10,
+    "CLASS":"bert_reader"
 }

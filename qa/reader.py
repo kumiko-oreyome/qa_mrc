@@ -1,10 +1,10 @@
-from common.util import get_default_device,load_json_config
-from common.experiment import Experiment
+from common.util import get_default_device,load_json_config,Factory
 import torch
 import itertools
 from bert.tokenization import BertTokenizer
 from mrc.bert.util import  load_bert_rc_model,BertInputConverter
 from dataloader.dureader import BertRCDataset
+from .decoder import MrcDecoderFactory
 import pandas as pd
 import numpy as np
 #import tensorflow as tf
@@ -47,24 +47,23 @@ def extract_answer_dp_linear(start_probs,end_probs):
 
 
 # start_probs/end_probs list :[prob1,prob2....]
-def extract_answer_brute_force(start_probs,end_probs):
+def extract_answer_brute_force(start_probs,end_probs,k=1):
     passage_len = len(start_probs)
     best_start, best_end, max_prob = -1, -1, 0
+    l = []
     for start_idx in range(passage_len):
         for ans_len in range(passage_len):
             end_idx = start_idx + ans_len
             if end_idx >= passage_len:
                 continue
             prob = start_probs[start_idx]*end_probs[end_idx]
-            if prob > max_prob:
-                best_start = start_idx
-                best_end = end_idx
-                max_prob = prob
-    return (best_start,best_end),max_prob
+            l.append((start_idx,end_idx,prob))
+            l = list(sorted(l,key=lambda x:x[2],reverse=True))[0:k]
+    return  list(map(lambda x:(x[0],x[1]),l)), list(map(lambda x:x[2],l))
 
 
 class BertReader():
-    def __init__(self,config,device=None,decode_policy='greedy'):
+    def __init__(self,config,decoder_dict=None,device=None):
         self.config = config
         if device is None:
             self.device = get_default_device()
@@ -75,7 +74,9 @@ class BertReader():
         self.model.eval()
         #bert-base-chinese
         self.tokenizer =  BertTokenizer('%s/vocab.txt'%(config.BERT_SERIALIZATION_DIR), do_lower_case=True)
-        self.decode_policy = decode_policy
+        if decoder_dict is None:
+            self.decoder = MrcDecoderFactory.from_dict({'class':'default','kwargs':{}})
+        self.decoder =  MrcDecoderFactory.from_dict(decoder_dict)
     # documents {'question':[{'passage':...,}]}
     def extract_answer(self,documents,batch_size=16):
         examples = []
@@ -111,10 +112,12 @@ class BertReader():
                 start_probs, end_probs = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
                 batch_dct_list =  torchtext_batch_to_dictlist(batch)
                 for j in range(len(start_probs)):
-                    sb,eb = start_probs[j].unsqueeze(0), end_probs[j].unsqueeze(0)
-                    span,score = self.find_best_span_from_probs(sb,eb,self.decode_policy)
-                    score = score.item() #輸出的score不是機率 所以不會介於0~1之間
-                    answer = self.extact_answer_from_span(batch.question[j],batch.passage[j],span)
+                    sb,eb = start_probs[j], end_probs[j]
+                    sb ,eb  = sb.cpu().numpy(),eb.cpu().numpy()
+                    text =  text = "$" + batch.question[j] + "\n" + batch.passage[j]
+                    answer,score = self.decoder.decode(sb,eb,text)
+                    #score = score.item() #輸出的score不是機率 所以不會介於0~1之間
+                   
                     batch_dct_list[j].update({'span':answer,'span_score':score})
                     preds.append(batch_dct_list[j])
         return  preds
@@ -141,7 +144,7 @@ class BertReader():
             else:
                 return (best_end, best_start), max_prob
 
-        return extract_answer_dp_linear(start_probs[0],end_probs[0])
+        
 
     def extact_answer_from_span(self,q,p,span):
         text = "$" + q + "\n" + p
@@ -152,27 +155,10 @@ class BertReader():
 
 
 
-class ReaderFactory():
+class ReaderFactory(Factory):
     NAME2CLS = {'bert_reader':BertReader,'bidaf':None}
     def __init__(self):
         pass
-    @classmethod
-    def from_config_path(cls,path,**kwargs):
-        config = load_json_config(path)
-        return cls.from_config(config,**kwargs)
-    @classmethod
-    def from_config(cls,config,**kwargs):
-        if not hasattr(config,'READER_CLASS'):
-            _cls = cls.NAME2CLS[kwargs['READER_CLASS']]
-        else:
-            _cls = cls.NAME2CLS[config.RANKER_CLASS]
-        if 'READER_CLASS' in kwargs:
-            del kwargs['READER_CLASS']
-        return _cls(config,**kwargs)
-    @classmethod
-    def from_exp_name(cls,exp_name,**kwargs):
-        config =  Experiment(exp_name).config
-        return cls.from_config(config,**kwargs)
 
 
 

@@ -8,5 +8,6 @@
     "MAX_SEQ_LEN":512,
     "MAX_PASSAGE_LEN":256,
     "BATCH_SIZE":16,
-    "EPOCH":10
+    "EPOCH":10,
+    "CLASS":"bert_pointwise"
 }

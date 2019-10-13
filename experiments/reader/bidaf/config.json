@@ -8,7 +8,8 @@
     "MAX_PASSAGE_LEN":500,
     "MAX_A_LEN" : 200,
     "BATCH_SIZE":16,
-    "EPOCH":10
+    "EPOCH":10,
+    "CLASS":"bidaf"
 }
 
 

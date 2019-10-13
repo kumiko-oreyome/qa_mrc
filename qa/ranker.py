@@ -3,7 +3,7 @@ import torch
 import itertools
 from rank.util import predict_on_batch,aggregate_prediction,sort_preidction_by_score,model_factory
 from rank.datautil  import load_examples_from_scratch,generate_bert_pointwise_input,BatchIter,numeralize_fucntion_factory
-from common.util import tuple2dict,load_json_config,torchtext_batch_to_dictlist
+from common.util import tuple2dict,load_json_config,torchtext_batch_to_dictlist,Factory
 from common.experiment import Experiment
 import pandas as pd
 from collections import Counter
@@ -126,30 +126,10 @@ class BertPointwiseRanker():
 
 
 
-class RankerFactory():
+class RankerFactory(Factory):
     NAME2CLS = {'bert_pointwise':BertPointwiseRanker}
     def __init__(self):
         pass
-    @classmethod
-    def from_config_path(cls,path,**kwargs):
-        config = load_json_config(path)
-        return cls.from_config(config,**kwargs)
-    @classmethod
-    def from_config(cls,config,**kwargs):
-        if not hasattr(config,'RANKER_CLASS'):
-            _cls = cls.NAME2CLS[kwargs['RANKER_CLASS']]
-        else:
-            _cls = cls.NAME2CLS[config.RANKER_CLASS]
-        if 'RANKER_CLASS' in kwargs:
-            del kwargs['RANKER_CLASS']
-        return _cls(config,**kwargs)
-    @classmethod
-    def from_exp_name(cls,exp_name,**kwargs):
-        config =  Experiment(exp_name).config
-        return cls.from_config(config,**kwargs)
-     
-    
-
 
 
 

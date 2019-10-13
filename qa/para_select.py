@@ -1,6 +1,5 @@
 from . import ranker  as qa_ranker
-from common.util  import RecordGrouper
-from tqdm import tqdm 
+from common.util  import RecordGrouper,Factory
 
 
 
@@ -40,7 +39,7 @@ class TfIdfSelector(ParagraphSelector):
 
 
 class WordMatchSelector(ParagraphSelector):
-    def __init__(self,ranker,k=1):
+    def __init__(self,k=1):
         super().__init__(k)
         self.word_matcher = qa_ranker.WordMatchRanker()
 
@@ -54,7 +53,7 @@ class WordMatchSelector(ParagraphSelector):
 class BertRankerSelector(ParagraphSelector):
     def __init__(self,ranker_name,k=1):
         super().__init__(k)
-        self.ranker = qa_ranker.RankerFactory.from_exp_name(ranker_name,RANKER_CLASS='bert_pointwise')
+        self.ranker = qa_ranker.RankerFactory.from_exp_name(ranker_name)
         
 
     def evaluate_scores(self,sample_list):
@@ -62,8 +61,8 @@ class BertRankerSelector(ParagraphSelector):
 
 
 
-class ParagraphSelectorFactory():
-    name2class = {"tfidf":TfIdfSelector,'bert_ranker':BertRankerSelector}
+class ParagraphSelectorFactory(Factory):
+    NAME2CLS = {"word_match":WordMatchSelector,"tfidf":TfIdfSelector,'bert_ranker':BertRankerSelector}
     def __init__(self):
         pass
 
@@ -72,20 +71,15 @@ class ParagraphSelectorFactory():
         if isinstance(information,str):
             return cls.from_name(information,**kwargs)
         elif isinstance(information,dict):
-            return cls.from_config(information)
+            return cls.from_dict(information)
         else:
             assert False
 
     @classmethod
-    def from_config(cls,config,**kwargs):
-        selector_cls =  cls.name2class[config['selector_class']]
-        return selector_cls(**config['kwargs'])
-
-    @classmethod
     def from_name(cls,name,**kwrags):
-        if name not in cls.name2class:
+        if name not in cls.NAME2CLS:
             return None
-        return cls.name2class[name](**kwrags)
+        return cls.NAME2CLS[name](**kwrags)
 
         
 

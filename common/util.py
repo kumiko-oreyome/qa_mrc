@@ -5,6 +5,31 @@ import torch
 import pandas as pd
 
 
+
+
+class Factory():
+    NAME2CLS = {}
+    def __init__(self):
+        pass
+    @classmethod
+    def from_dict(cls,d):
+        _cls = cls.NAME2CLS[d['class']]
+        return _cls(**d['kwargs'])
+    @classmethod
+    def from_config_path(cls,path,**kwargs):
+        config = load_json_config(path,**kwargs)
+        return cls.from_config(config,**kwargs)
+    @classmethod
+    def from_config(cls,config,**kwargs):
+        _cls = cls.NAME2CLS[config.CLASS]
+        return _cls(config,**kwargs)
+    @classmethod
+    def from_exp_name(cls,exp_name,**kwargs):
+        from .experiment import Experiment
+        config =  Experiment(exp_name).config
+        return cls.from_config(config,**kwargs)
+
+
 class RecordGrouper():
     def __init__(self,records):
         self.records = records
