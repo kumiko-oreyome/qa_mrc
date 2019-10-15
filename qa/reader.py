@@ -112,7 +112,7 @@ class BertReader():
         for j in range(len(start_probs)):
             sb,eb = start_probs[j], end_probs[j]
             sb ,eb  = sb.cpu().numpy(),eb.cpu().numpy()
-            text =  text = "$" + batch.question[j] + "\n" + batch.passage[j]
+            text = "$" + batch.question[j] + "\n" + batch.passage[j]
             answer,score = self.decoder.decode(sb,eb,text)
             #score = score.item() #輸出的score不是機率 所以不會介於0~1之間
             batch_dct_list[j].update({'span':answer,'span_score':score})

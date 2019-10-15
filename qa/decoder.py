@@ -36,6 +36,8 @@ class LinearDecoder(MrcDecoder):
         return list(map(lambda x: (x[0],x[1]),self.top_k_spans)),list(map(lambda x: x[2],self.top_k_spans))
 
     def decode_answer(self,span,score,text):
+        if self.k == 1:
+            return text[span[0][0]:span[0][1]+1],score[0]
         intervals = []
         for start,end in span:
             intv_flag = False
