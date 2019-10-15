@@ -251,8 +251,8 @@ def test_bleu_rouge():
 
 #test_dureader_bert_rc_with_ranker_XXX('./data/devset/search.dev.json','pointwise/answer_doc','reader/bert_default','most_related_para','max_all')
 #test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'selector_class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}})
-#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
-#    {'class':'default','kwargs':{'k':2}})
+test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
+    {'class':'default','kwargs':{'k':1}})
 #test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
 #    {'class':'default','kwargs':{'k':2}})
 #evaluate_dureader('./data/demo/devset/search.dev.json','pointwise/answer_doc',None)
@@ -263,4 +263,4 @@ def test_bleu_rouge():
 #test_dureader_bert_rc('./data/demo/devset/search.dev.json','reader/bert_default','most_related_para')
 #most_related_para
 
-test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default','most_related_para',{'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default','most_related_para',{'class':'default','kwargs':{'k':1}})
