@@ -63,7 +63,7 @@ def extract_answer_brute_force(start_probs,end_probs,k=1):
 
 
 class BertReader():
-    def __init__(self,config,decoder_dict=None,device=None):
+    def __init__(self,config,decoder_dict=None,eval_flag=True,device=None):
         self.config = config
         if device is None:
             self.device = get_default_device()
@@ -71,56 +71,55 @@ class BertReader():
         self.model = load_bert_rc_model( bert_config_path,config.MODEL_PATH,self.device)
         self.model.load_state_dict(torch.load(config.MODEL_PATH,map_location=self.device))
         self.model = self.model.to( self.device)
-        self.model.eval()
+        if eval_flag:
+            self.model.eval()
         #bert-base-chinese
         self.tokenizer =  BertTokenizer('%s/vocab.txt'%(config.BERT_SERIALIZATION_DIR), do_lower_case=True)
         if decoder_dict is None:
             self.decoder = MrcDecoderFactory.from_dict({'class':'default','kwargs':{}})
-        self.decoder =  MrcDecoderFactory.from_dict(decoder_dict)
-    # documents {'question':[{'passage':...,}]}
-    def extract_answer(self,documents,batch_size=16):
-        examples = []
-        for question,passage_dict_list  in documents.items():
-            for dct in passage_dict_list:
-                examples.append()
-                passage = dct['passage']
-                examples.append({'question':question,'passage':passage})
-        
-        dataset  = BertRCDataset(examples,self.config.max_query_length,self.config.max_seq_length,mode='eval',device=self.device)
-        iterator = dataset.make_batchiter(batch_size=batch_size)
-        _preds = self.evaluate_on_batch(iterator)
-        #for dct in _preds:
-        #    question = dct['question']
-        #    passage = dct['passage']
-        #    passage_dct_l = documents[question]
-        #    for d   in passage_dct_l:
-        #        if passage == d['passage']:
-        #            d.update({'span':dct['span'],'span_score':dct['span_score']})
-        return _preds
+        else:
+            self.decoder =  MrcDecoderFactory.from_dict(decoder_dict)
+
 
     # record : list of dict  [ {field1:value1,field2:value2...}}]
-    def evaluate_on_records(self,records):
-        pass
+    def evaluate_on_records(self,records,batch_size=64):
+        iterator = self.get_batchiter(records,batch_size)
+        return  self.evaluate_on_batch(iterator)
+
+
+    def get_batchiter(self,records,train_flag=False,batch_size=64):
+        dataset  = BertRCDataset(records,self.config.MAX_QUERY_LEN,self.config.MAX_SEQ_LEN,train_flag=train_flag,device=self.device)
+        iterator = dataset.make_batchiter(batch_size=batch_size)
+        return iterator
 
 
     def evaluate_on_batch(self,iterator):
+        preds = []
         with torch.no_grad():
-            preds = []
             for  i,batch in enumerate(iterator):
                 if i % 20 == 0:
                     print('evaluate on %d batch'%(i))
-                start_probs, end_probs = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
-                batch_dct_list =  torchtext_batch_to_dictlist(batch)
-                for j in range(len(start_probs)):
-                    sb,eb = start_probs[j], end_probs[j]
-                    sb ,eb  = sb.cpu().numpy(),eb.cpu().numpy()
-                    text =  text = "$" + batch.question[j] + "\n" + batch.passage[j]
-                    answer,score = self.decoder.decode(sb,eb,text)
-                    #score = score.item() #輸出的score不是機率 所以不會介於0~1之間
-                   
-                    batch_dct_list[j].update({'span':answer,'span_score':score})
-                    preds.append(batch_dct_list[j])
+                preds.extend(self.predict_one_batch(batch))
         return  preds
+
+    def predict_one_batch(self,batch):
+        start_probs, end_probs = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
+        return self.decode_batch(start_probs, end_probs,batch)
+
+    def decode_batch(self,start_probs,end_probs,batch):
+        batch_dct_list =  torchtext_batch_to_dictlist(batch)
+        preds = []
+        for j in range(len(start_probs)):
+            sb,eb = start_probs[j], end_probs[j]
+            sb ,eb  = sb.cpu().numpy(),eb.cpu().numpy()
+            text =  text = "$" + batch.question[j] + "\n" + batch.passage[j]
+            answer,score = self.decoder.decode(sb,eb,text)
+            #score = score.item() #輸出的score不是機率 所以不會介於0~1之間
+            batch_dct_list[j].update({'span':answer,'span_score':score})
+            preds.append(batch_dct_list[j]) 
+        return preds
+              
+
 
     def find_best_span_from_probs(self,start_probs, end_probs,policy):
         def greedy():

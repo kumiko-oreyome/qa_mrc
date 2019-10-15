@@ -81,7 +81,9 @@ class DureaderLoader():
         self.sample_fields = sample_fields
         self.doc_fields = doc_fields
         self.sample_list = []
-        if paragraph_selection is not None:
+        if paragraph_selection is None or type(paragraph_selection)==str:
+            self.paragraph_selector = paragraph_selection
+        else:
             self.paragraph_selector = ParagraphSelectorFactory.create_selector(self.paragraph_selection)
         for path in path_list:
             print('dureader load %s'%(path))
@@ -99,18 +101,20 @@ class DureaderLoader():
         drex = DureaderRawExample(raw_sample)
         sample_list = drex.flatten(self.sample_fields,self.doc_fields )
 
-        if self.paragraph_selection is None:
+        if self.paragraph_selector is None:
             return sample_list
-        if self.paragraph_selection in ['answer_doc','answer_docs']:
+        if self.paragraph_selector in ['answer_doc','answer_docs']:
             answer_doc,ans_doc_id = drex.get_answer_doc()
             if ans_doc_id is None:
                 answer_doc,ans_doc_id = drex.get_document_by_id(0),0
             answer_para,ans_para_id =  answer_doc.get_most_related_para()
             sample_list = list(filter(lambda dct:dct["doc_id"] ==ans_doc_id and dct["passage_id"] == ans_para_id,sample_list))
-        elif self.paragraph_selection == 'most_related_para':
+        elif self.paragraph_selector == 'most_related_para':
             legal_ids = [(doc_id,doc.get_most_related_para()[1]) for doc_id,doc in enumerate(drex.get_documents())]
             sample_list = list(filter(lambda dct:(dct["doc_id"],dct["passage_id"]) in legal_ids ,sample_list))
-        if self.paragraph_selector is not None:
+        elif type(self.paragraph_selector) == str:
+            assert False
+        else:
             sample_list = self.paragraph_selector.paragraph_selection(sample_list)
 
         return sample_list
@@ -135,23 +139,31 @@ class RecordDataset(object):
 
 
 
-class BertRCDataset( RecordDataset):   
-    def __init__(self,sample_list,max_query_length,max_seq_length,device=None):
+class BertRCDataset( RecordDataset):  
+    bert_field = Field(batch_first=True, sequential=True, tokenize=lambda ids:[int(i) for i in ids],use_vocab=False, pad_token=0) 
+    def __init__(self,sample_list,max_query_length,max_seq_length,train_flag=False,device=None):
         super(BertRCDataset,self).__init__(sample_list,device)
-        self.add_bert_fields()
         self.max_query_length = max_query_length
         self.max_seq_length = max_seq_length
         self.tokenizer =  BertTokenizer.from_pretrained('bert-base-chinese', do_lower_case=True)
         self.cvt = BertInputConverter(self.tokenizer)
+        self.train_flag = train_flag
+        self.add_bert_fields()
+
+        if train_flag:
+            self.sample_list = [d for d in self.sample_list if len(d['answer_spans'])==1]
         for sample in self.sample_list:
             tmp =  self.cvt.convert(sample['question'],sample['passage'],self.max_query_length, self.max_seq_length,to_tensor=False)
             (input_ids, input_mask, segment_ids) = tmp['input'],tmp['att_mask'], tmp['seg']
             sample.update({'input_ids':input_ids,'input_mask':input_mask,'segment_ids':segment_ids})
-
-
+            if train_flag:
+                ss,se =  sample['answer_spans'][0]
+                sample['answer_span'] = tmp['pos_map'][ss],tmp['pos_map'][se]
+                
     def add_bert_fields(self):
-        bert_field = Field(batch_first=True, sequential=True, tokenize=lambda ids:[int(i) for i in ids],use_vocab=False, pad_token=0)
-        self.fields+= [('input_ids',bert_field),('input_mask',bert_field),('segment_ids',bert_field)]
+        self.fields+= [('input_ids',self.bert_field),('input_mask',self.bert_field),('segment_ids',self.bert_field)]
+        if self.train_flag:
+            self.fields.append(('answer_span',self.bert_field))
 
     def make_dataset(self):
         l = []

@@ -71,11 +71,12 @@ class WordMatchRanker():
 
 
 class BertPointwiseRanker():
-    def __init__(self,config,device=None):
+    def __init__(self,config,eval_flag=True,device=None):
         self.config = config
         self.model,self.tokenizer,self.device  = model_factory(config.BERT_SERIALIZATION_DIR,device=device)
         self.model.load_state_dict(torch.load(config.MODEL_PATH,map_location=self.device))   
-        self.model.eval()
+        if eval_flag:
+            self.model.eval()
         _num_fn = numeralize_fucntion_factory(config.NUM_FN_NAME)
         self.numeralize_fn = functools.partial(_num_fn,max_seq_len=config.MAX_SEQ_LEN ,max_passage_len=config.MAX_PASSAGE_LEN ,\
             tokenizer=self.tokenizer,device=self.device)
@@ -98,10 +99,14 @@ class BertPointwiseRanker():
         return ret
 
 
-    def evaluate_on_records(self,record_list):
-        rank_dataset = dureader.BertRankDataset(record_list,self.config.BERT_SERIALIZATION_DIR,self.config.MAX_PASSAGE_LEN,self.config.MAX_SEQ_LEN)
-        iterator =  rank_dataset.make_batchiter(batch_size=128)
+    def evaluate_on_records(self,record_list,batch_size=128):
+        iterator = self.get_batchiter(record_list,batch_size)
         return self.evaluate_on_batch(iterator)
+
+    def get_batchiter(self,record_list,batch_size=64):
+        rank_dataset = dureader.BertRankDataset(record_list,self.config.BERT_SERIALIZATION_DIR,self.config.MAX_PASSAGE_LEN,self.config.MAX_SEQ_LEN)
+        iterator =  rank_dataset.make_batchiter(batch_size=batch_size)
+        return iterator
 
 
     def evaluate_on_batch(self,iterator):
@@ -110,10 +115,7 @@ class BertPointwiseRanker():
             for  i,batch in enumerate(iterator):
                 if i % 20 == 0 and i!=0:
                     print('ranker : evaluate on %d batch'%(i))
-                match_scores = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
-                match_scores  = torch.nn.Sigmoid()(match_scores) # N,2
-                match_scores  =  match_scores[:,1] #  N  ,get positve socre
-                match_scores = match_scores
+                match_scores = self.predict_score_one_batch(batch)
                 if match_scores.is_cuda:
                     match_scores = match_scores.cpu()
                 match_scores =  match_scores.numpy().tolist()
@@ -122,6 +124,13 @@ class BertPointwiseRanker():
                     item_dict.update({'rank_score':match_scores[j]})
                     preds.append(item_dict)
         return  preds
+
+    def predict_score_one_batch(self,batch):
+        match_scores = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
+        match_scores  = torch.nn.Sigmoid()(match_scores) # N,2
+        match_scores  =  match_scores[:,1] #  N  ,get positve socre
+        match_scores = match_scores
+        return match_scores
 
 
 

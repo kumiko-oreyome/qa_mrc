@@ -3,8 +3,35 @@ import io
 import json
 import torch
 import pandas as pd
+import mrc.bert.metric.mrc_eval
+from .dureader_eval  import  compute_bleu_rouge,normalize
+# evaluate by the method of dureader bert probject
 
 
+# evaluate by the method of bidaf project provided by baidu
+def evaluate_mrc_bidaf(pred_answers):
+    pred_for_bidaf_eval = {}
+    ref_dict = {}
+    for qid,v in pred_answers.items():
+        best_pred = v[0]
+        if len(best_pred['answers']) == 0:
+            continue
+        pred_for_bidaf_eval[qid] = normalize([ best_pred['span']])
+        ref_dict[qid]  = normalize(best_pred['answers'])
+    print(compute_bleu_rouge(pred_for_bidaf_eval,ref_dict))
+
+
+def evaluate_mrc_bert(pred_answers):
+    pred_dict_for_eval = {}
+    ref_dict_for_eval  = {}
+    for _,v in pred_answers.items():
+        top1_item = v[0]
+        pred_dict_for_eval[top1_item['question_id']] = {'question':top1_item['question'],'question_type': top1_item['question_type'],\
+            'answers': [top1_item['span']],'entity_answers': [[]],'yesno_answers': []}
+        ref_dict_for_eval[top1_item['question_id']]  = {'question':top1_item['question'],'question_type': top1_item['question_type'],\
+            'answers': top1_item['answers'],'entity_answers': [[]],'yesno_answers': []}
+            
+    mrc.bert.metric.mrc_eval.evaluate(pred_dict_for_eval,ref_dict_for_eval)
 
 
 class Factory():

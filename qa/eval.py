@@ -4,11 +4,10 @@ from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
 from qa.judger import MaxAllJudger,MultiplyJudger
-from common.dureader_eval  import  compute_bleu_rouge,normalize
-from common.util import  group_dict_list,RecordGrouper
+from common.util import  group_dict_list,RecordGrouper,evaluate_mrc_bert,evaluate_mrc_bidaf
 from dataloader.dureader import DureaderLoader,BertRCDataset,BertRankDataset
 from dataloader import chiuteacher  
-import mrc.bert.metric.mrc_eval
+
 
 
 # dureader dataset test
@@ -58,7 +57,7 @@ def evaluate_chiu_rank(ranker_exp_name):
     records = [dict(zip(['question','passage','label'], values)) for values in pairwise_examples ]
     print('%d chiu pairwise records'%(len(records)))
 
-    ranker =   RankerFactory.from_exp_name(ranker_exp_name,RANKER_CLASS='bert_pointwise')
+    ranker =   RankerFactory.from_exp_name(ranker_exp_name)
     ranker_config = ranker.config
     rank_dataset = BertRankDataset(records,ranker_config.BERT_SERIALIZATION_DIR,ranker_config.MAX_PASSAGE_LEN,ranker_config.MAX_SEQ_LEN)
     iterator =  rank_dataset.make_batchiter(batch_size=128)
@@ -81,17 +80,6 @@ def evaluate_chiu_rank(ranker_exp_name):
 
 
 
-# evaluate by the method of bidaf project provided by baidu
-def evaluate_mrc_bidaf(pred_answers):
-    pred_for_bidaf_eval = {}
-    ref_dict = {}
-    for qid,v in pred_answers.items():
-        best_pred = v[0]
-        if len(best_pred['answers']) == 0:
-            continue
-        pred_for_bidaf_eval[qid] = normalize([ best_pred['span']])
-        ref_dict[qid]  = normalize(best_pred['answers'])
-    print(compute_bleu_rouge(pred_for_bidaf_eval,ref_dict))
        
 
 
@@ -263,9 +251,10 @@ def test_bleu_rouge():
 
 #test_dureader_bert_rc_with_ranker_XXX('./data/devset/search.dev.json','pointwise/answer_doc','reader/bert_default','most_related_para','max_all')
 #test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'selector_class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}})
-
-test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
-    {'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
+#    {'class':'default','kwargs':{'k':2}})
+#test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
+#    {'class':'default','kwargs':{'k':2}})
 #evaluate_dureader('./data/demo/devset/search.dev.json','pointwise/answer_doc',None)
 #evaluate_dureader('./data/devset/search.dev.json','pointwise/answer_doc',None)
 #test_reader()
@@ -274,3 +263,4 @@ test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_defaul
 #test_dureader_bert_rc('./data/demo/devset/search.dev.json','reader/bert_default','most_related_para')
 #most_related_para
 
+test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default','most_related_para',{'class':'default','kwargs':{'k':1}})

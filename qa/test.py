@@ -49,7 +49,20 @@ def test_decode_answer():
     answer = '123457890def'
     assert ret ==answer
 
-test_decode_answer()
+
+def test_transform_policy():
+    from mrc.bert.reinforce import transform_policy_score,PolicySampleRanker
+    d = [{'question_id':123,'b':2},{'question_id':456,'b':5},{'question_id':123,'b':3},{'question_id':456,'b':10}]
+    ddd = transform_policy_score(d,'b')
+    assert ddd[0]['policy_score']==0.4 and   ddd[3]['policy_score']==2/3
+    policy = PolicySampleRanker(ddd)
+    print(policy.sample_per_question())
+
+
+
+
+test_transform_policy()
+#test_decode_answer()
 
 #test_extract_answer_dp()
 #test_extract_topk_answer_dp()
