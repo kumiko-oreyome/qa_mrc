@@ -41,11 +41,10 @@ class TfIdfSelector(ParagraphSelector):
 class WordMatchSelector(ParagraphSelector):
     def __init__(self,k=1):
         super().__init__(k)
-        self.word_matcher = qa_ranker.WordMatchRanker()
+        self.ranker = qa_ranker.WordMatchRanker()
 
-    def paragraph_selection(self,sample_list):
-        samples_with_rankscore = self.evaluate_scores(sample_list)
-        return self.select_top_k_each_doc(samples_with_rankscore)
+    def evaluate_scores(self,sample_list):
+        return self.ranker.evaluate_on_records(sample_list)
 
 
 

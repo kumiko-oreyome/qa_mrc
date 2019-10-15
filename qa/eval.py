@@ -137,8 +137,8 @@ def test_dureader_bert_rc(test_path,reader_exp_name,para_selection_method,decode
     print('test_dureader_bert_rc loading samples...')
     loader = DureaderLoader(test_path,para_selection_method,sample_fields=['question','answers','question_id','question_type'])
     sample_list = loader.sample_list
-
-    
+    print(sample_list[0])
+    print(sample_list[1])
     reader = ReaderFactory.from_exp_name(reader_exp_name,decoder_dict=decoder_dict)
     reader_config = reader.config
 
@@ -248,13 +248,18 @@ def test_bleu_rouge():
 
 
 #test_dureader_bidaf_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bidaf','most_related_para')
-
 #test_dureader_bert_rc_with_ranker_XXX('./data/devset/search.dev.json','pointwise/answer_doc','reader/bert_default','most_related_para','max_all')
 #test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'selector_class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}})
-test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
-    {'class':'default','kwargs':{'k':1}})
+
+###########################################
+
+#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
+#    {'class':'default','kwargs':{'k':1}})
 #test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},\
 #    {'class':'default','kwargs':{'k':2}})
+#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',para_selection_method={'class':'word_match','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc(['./data/demo/devset/search.dev.2.json'],'reader/bert_default',para_selection_method={'class':'word_match','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc(['./data/demo/devset/search.dev.2.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
 #evaluate_dureader('./data/demo/devset/search.dev.json','pointwise/answer_doc',None)
 #evaluate_dureader('./data/devset/search.dev.json','pointwise/answer_doc',None)
 #test_reader()
