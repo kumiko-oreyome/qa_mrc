@@ -12,7 +12,8 @@ class MrcDecoder():
         pass
     def decode(self,start_probs,end_probs,text):
         span,score = self.decode_span(start_probs,end_probs)
-        return self.decode_answer(span,score,text)
+        answer,max_score = self.decode_answer(span,score,text)
+        return answer,max_score,span
 
     def decode_span(self,start_probs,end_probs):
         pass
@@ -22,22 +23,20 @@ class MrcDecoder():
 class LinearDecoder(MrcDecoder):
     def __init__(self,k=1):
         self.k = k
-        self.top_k_spans = []
     def decode_span(self,start_probs,end_probs):
+        top_k_spans = []
         N = len(start_probs)
         assert N>0
-        self.top_k_spans.append((0,0,start_probs[0]*end_probs[0]))
+        top_k_spans.append((0,0,start_probs[0]+end_probs[0]))
         new_topk_span_candidates = [(0,start_probs[0])]
         for i in range(1,N):   
             new_topk_span_candidates.append((i,start_probs[i]))
             new_topk_span_candidates =  list(sorted(new_topk_span_candidates,key=lambda x: x[1],reverse=True))[0:self.k]
-            self.top_k_spans.extend([ (si,i,start_probs[si]*end_probs[i]) for si,_ in new_topk_span_candidates])
-            self.top_k_spans = list(sorted(self.top_k_spans,key=lambda x: x[2],reverse=True))[0:self.k]
-        return list(map(lambda x: (x[0],x[1]),self.top_k_spans)),list(map(lambda x: x[2],self.top_k_spans))
+            top_k_spans.extend([ (si,i,start_probs[si]+end_probs[i]) for si,_ in new_topk_span_candidates])
+            top_k_spans = list(sorted(top_k_spans,key=lambda x: x[2],reverse=True))[0:self.k]
+        return list(map(lambda x: (x[0],x[1]),top_k_spans)),list(map(lambda x: x[2],top_k_spans))
 
     def decode_answer(self,span,score,text):
-        if self.k == 1:
-            return text[span[0][0]:span[0][1]+1],score[0]
         intervals = []
         for start,end in span:
             intv_flag = False
