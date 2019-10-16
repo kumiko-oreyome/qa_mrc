@@ -266,7 +266,6 @@ def test_bleu_rouge():
 test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default','most_related_para')
 
 #test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default','most_related_para')
-#evaluate_dureader('./data/demo/devset/search.dev.json','pointwise/answer_doc',None)
 #evaluate_dureader('./data/devset/search.dev.json','pointwise/answer_doc',None)
 #test_reader()
 
