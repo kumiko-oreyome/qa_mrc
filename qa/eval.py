@@ -196,7 +196,8 @@ def test_bleu_rouge():
 #test_dureader_bert_rc(['./data/demo/devset/search.dev.2.json'],'reader/bert_default',para_selection_method={'class':'word_match','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
 #test_dureader_bert_rc(['./data/demo/devset/search.dev.2.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
 
-test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+test_dureader_bert_rc(['./data/demo/devset/search.dev.2.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
 
 #evaluate_dureader('./data/demo/devset/search.dev.json','pointwise/answer_doc',None)
 #evaluate_dureader('./data/devset/search.dev.json','pointwise/answer_doc',None)
