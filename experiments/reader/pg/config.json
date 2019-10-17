@@ -1,0 +1,4 @@
+{
+	"reader_name":"reader/bert_default",
+	"ranker_name":"pointwise/answer_doc"
+}

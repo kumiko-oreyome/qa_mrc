@@ -5,6 +5,7 @@ from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
 from qa.judger import MaxAllJudger,MultiplyJudger
 from common.dureader_eval  import  compute_bleu_rouge,normalize
+from common.experiment import Experiment
 from common.util import  group_dict_list,RecordGrouper,evaluate_mrc_bidaf
 from dataloader.dureader import DureaderLoader,BertRCDataset,BertRankDataset
 from dataloader import chiuteacher  
@@ -97,19 +98,22 @@ class PolicySampleRanker():
 
 
 if __name__ == '__main__':
+    experiment = Experiment('reader/pg')
+    #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
+    #DEV_PATH = "./data/devset/search.dev.json"
     TRAIN_PATH = "./data/demo/devset/search.dev.2.json"
     DEV_PATH = "./data/demo/devset/search.dev.2.json"
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
-    EPOCH = 100
+    EPOCH = 10
     train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'])
     dev_loader = DureaderLoader(DEV_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs'])
-    ranker = RankerFactory.from_exp_name(RANKER_EXP_NAME,eval_flag=False)
-    reader = ReaderFactory.from_exp_name(READER_EXP_NAME,eval_flag=False)
+    ranker = RankerFactory.from_exp_name(experiment.config.ranker_name,eval_flag=False)
+    reader = ReaderFactory.from_exp_name(experiment.config.reader_name,eval_flag=False)
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
-    BATCH_SIZE = 64
+    BATCH_SIZE = 128
 
     ranker_results = ranker.evaluate_on_records(train_loader.sample_list)
     results_with_poicy_scores = transform_policy_score(ranker_results)
@@ -157,10 +161,19 @@ if __name__ == '__main__':
         reward_tracer.print('reward avg :')
         print('metrics')
         #here must let ranker to select paragraph to evaluate the effect of policy gradient
+        reader.model = reader.model.eval()
         _preds = reader.evaluate_on_batch(reader.get_batchiter(dev_loader.sample_list,batch_size=BATCH_SIZE))
         _preds = group_dict_list(_preds,'question_id')
         pred_answers  = MaxAllJudger().judge(_preds)
-        evaluate_mrc_bidaf(pred_answers)
+        evaluate_result = evaluate_mrc_bidaf(pred_answers)
+        reader.model = reader.model.train()
+        higest_bleu = 0.0
+        if evaluate_result['Bleu-4'] >  higest_bleu:
+            higest_bleu = evaluate_result['Bleu-4']
+            model_dir = experiment.model_dir
+            print('save models with bleu %.3f to %s'%(evaluate_result['Bleu-4'],model_dir))
+            torch.save(ranker.model.state_dict(),'%s/ranker.bin'%(model_dir))
+            torch.save(reader.model.state_dict(),'%s/reader.bin'%(model_dir))
         print('- - '*20)
 
 
