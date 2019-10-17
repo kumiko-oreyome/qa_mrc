@@ -104,8 +104,8 @@ if __name__ == '__main__':
     EPOCH = 100
     train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'])
     dev_loader = DureaderLoader(DEV_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs'])
-    ranker = RankerFactory.from_exp_name(RANKER_EXP_NAME,eval_flag=False)
-    reader = ReaderFactory.from_exp_name(READER_EXP_NAME,eval_flag=False)
+    ranker = RankerFactory.from_exp_name(RANKER_EXP_NAME)
+    reader = ReaderFactory.from_exp_name(READER_EXP_NAME)
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)

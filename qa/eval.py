@@ -250,31 +250,15 @@ def test_bleu_rouge():
     print(bleu_rouge)
 
 
+
+DUREADER_DEV_ALL = ['./data/devset/search.dev.json','./data/devset/zhidao.dev.json']
+DEBUG_FILE = ['./data/demo/devset/search.dev.2.json']
 #evaluate_chiu_rank('pointwise/answer_doc')
+#test_dureader_bidaf_rc(DUREADER_DEV_ALL,'reader/bidaf','most_related_para')
 
-#test_dureader_bert_rc_with_ranker_XXX(['./data/demo/devset/search.dev.json','./data/demo/devset/search.dev.2.json'],'pointwise/answer_doc','reader/bert_default','most_related_para','max_all')
-#test_dureader_bert_rc_with_ranker_XXX('./data/demo/devset/search.dev.json','pointwise/answer_doc','reader/bert_default','most_related_para','multiply')
-
-#test_dureader_bert_rc_with_ranker_XXX(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'pointwise/answer_doc','reader/bert_default','most_related_para','max_all')
-#test_dureader_bert_rc_with_ranker_XXX(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'pointwise/answer_doc','reader/bert_default','most_related_para','multiply')
-
-
-#test_dureader_bidaf_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bidaf','most_related_para')
-
-#test_dureader_bert_rc_with_ranker_XXX('./data/devset/search.dev.json','pointwise/answer_doc','reader/bert_default','most_related_para','max_all')
+#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}})
+#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+test_dureader_bert_rc(DEBUG_FILE,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
 
 
-#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
-test_dureader_bert_rc(['./data/demo/devset/search.dev.2.json'],'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
-
-#test_dureader_bert_rc(['./data/devset/search.dev.json','./data/devset/zhidao.dev.json'],'reader/bert_default','most_related_para')
-
-
-#test_dureader_bert_rc('./data/demo/devset/search.dev.2.json','reader/bert_default','most_related_para')
-#evaluate_dureader('./data/devset/search.dev.json','pointwise/answer_doc',None)
-#test_reader()
-
-#test_bleu_rouge()
-#test_dureader_bert_rc('./data/demo/devset/search.dev.json','reader/bert_default','most_related_para')
-#most_related_para
 

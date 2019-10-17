@@ -18,7 +18,9 @@ def evaluate_mrc_bidaf(pred_answers):
             continue
         pred_for_bidaf_eval[qid] = normalize([ best_pred['span']])
         ref_dict[qid]  = normalize(best_pred['answers'])
-    print(compute_bleu_rouge(pred_for_bidaf_eval,ref_dict))
+    result = compute_bleu_rouge(pred_for_bidaf_eval,ref_dict)
+    print(result)
+    return result
 
 
 def evaluate_mrc_bert(pred_answers):
