@@ -1,6 +1,7 @@
 import random
 from .reader  import  extract_answer_brute_force,extract_answer_dp_linear
 from .decoder import LinearDecoder
+
 def test_extract_answer_dp():
     print('test_extract_answer_dp')
     start_probs = []
@@ -70,6 +71,10 @@ def test_mrc_baseline():
     res_dict = evaluate_mrc_bidaf(pred_answers)
     assert res_dict == {'Bleu-1': 0.19711538461443695, 'Bleu-2': 0.15154174071281326, 'Bleu-3': 0.11637351097094059, 'Bleu-4': 0.0983666932134996, 'Rouge-L': 0.260079879764384}
    
+def test_bleu_rouge():
+    from common.dureader_eval  import  compute_bleu_rouge,normalize
+    bleu_rouge = compute_bleu_rouge({'aaa':['你好嗎'],'bbb':['澳斑馬']}, {'aaa':['你好嗎真的好嗎','不好啦'],'bbb':['澳洲','斑馬']})
+    print(bleu_rouge)
 
 test_extract_answer_dp()
 test_extract_topk_answer_dp()

@@ -83,7 +83,7 @@ class BertReader():
 
     # record : list of dict  [ {field1:value1,field2:value2...}}]
     def evaluate_on_records(self,records,batch_size=64):
-        iterator = self.get_batchiter(records,batch_size)
+        iterator = self.get_batchiter(records,batch_size=batch_size)
         return  self.evaluate_on_batch(iterator)
 
 

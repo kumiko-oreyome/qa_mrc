@@ -4,20 +4,40 @@ from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
 from qa.judger import MaxAllJudger,MultiplyJudger
-from common.dureader_eval  import  compute_bleu_rouge,normalize
-from common.util import  group_dict_list,RecordGrouper
+from common.util import  group_dict_list,RecordGrouper,evaluate_mrc_bidaf
 from dataloader.dureader import DureaderLoader,BertRCDataset,BertRankDataset
-from dataloader import chiuteacher  
-import mrc.bert.metric.mrc_eval
+from dataloader import chiuteacher,demo_files
+from io import StringIO
 
 
-# dureader dataset test
+class QARankedListFormater():
+    def __init__(self,ranked_dict_list):
+        self.results = ranked_dict_list
+    def format_result(self,gold_info=False):
+        grouper_dict = RecordGrouper(self.results).group('question')
+        buf = StringIO()
+        for q,v in grouper_dict.items():
+            buf.write('question:\n')
+            buf.write(q+'\n')
+            #if gold_info:
+            #    buf.write('dureader ground truth information:\n')
+            #    buf.write('answer passage is \n')   
+            #    buf.write('answer is \n')
+            buf.write('prediction answers:\n')
+            for pred in v:
+                buf.write('\t\tpassage is %s\n\n'%(pred['passage'][0:500]))
+                buf.write('\t\textract (score : %.3f):\n%s\n'%(pred['span_score'],pred['span']))
+                buf.write('\t\t##'*10)
+        return buf.getvalue()
+                
+        
 
-TESTPATH = './'
+
 
 
 # evaluate by the method of dureader bert probject
 def evaluate_mrc_bert(pred_answers):
+    import mrc.bert.metric.mrc_eval
     pred_dict_for_eval = {}
     ref_dict_for_eval  = {}
     for _,v in pred_answers.items():
@@ -81,18 +101,6 @@ def evaluate_chiu_rank(ranker_exp_name):
 
 
 
-# evaluate by the method of bidaf project provided by baidu
-def evaluate_mrc_bidaf(pred_answers):
-    pred_for_bidaf_eval = {}
-    ref_dict = {}
-    for qid,v in pred_answers.items():
-        best_pred = v[0]
-        if len(best_pred['answers']) == 0:
-            continue
-        pred_for_bidaf_eval[qid] = normalize([ best_pred['span']])
-        ref_dict[qid]  = normalize(best_pred['answers'])
-    print(compute_bleu_rouge(pred_for_bidaf_eval,ref_dict))
-       
 
 
 
@@ -149,116 +157,72 @@ def test_dureader_bert_rc(test_path,reader_exp_name,para_selection_method,decode
     print('test_dureader_bert_rc loading samples...')
     loader = DureaderLoader(test_path,para_selection_method,sample_fields=['question','answers','question_id','question_type'])
     sample_list = loader.sample_list
-
-    
     reader = ReaderFactory.from_exp_name(reader_exp_name,decoder_dict=decoder_dict)
-    reader_config = reader.config
-
-    dataset  = BertRCDataset(sample_list,reader_config.MAX_QUERY_LEN,reader_config.MAX_SEQ_LEN,device=reader.device)
-    print('make batch')
-    iterator = dataset.make_batchiter(batch_size=128)
-    _preds = reader.evaluate_on_batch(iterator)
+    _preds = reader.evaluate_on_records(sample_list,batch_size=128)
     _preds = group_dict_list(_preds,'question_id')
     pred_answers  = MaxAllJudger().judge(_preds)
-
-    #evaluate_mrc_bert(pred_answers)
-
-
-    #answer_dict = group_dict_list(sample_list,'question_id', lambda x: {'answers':normalize([x[0]['answers']])})
-    
-    #print(answer_dict)
-    #print(pred_answers)
-    #print('bert evaluation')
-    #evaluate_mrc_bert(pred_answers)
     print('bidaf evaluation')
     evaluate_mrc_bidaf(pred_answers)
 
 
+def show_prediction_for_dureader(paths,outpath,reader_exp_name,para_selection_method,decoder_dict=None):
+    print('show_prediction_for_dureader')
+    loader = DureaderLoader(paths,para_selection_method,sample_fields=['question','answers','question_id','question_type'])
+    sample_list = loader.sample_list
+    reader = ReaderFactory.from_exp_name(reader_exp_name,decoder_dict=decoder_dict)
+    _preds = reader.evaluate_on_records(sample_list,batch_size=128)
+    _preds = group_dict_list(_preds,'question_id')
+    pred_answers  = MaxAllJudger().judge(_preds)
+    pred_answer_list = RecordGrouper.from_group_dict('question_id',pred_answers).records
+    print('bidaf evaluation')
+    ranked_list_formatter = QARankedListFormater(pred_answer_list)
+    formated_result = ranked_list_formatter.format_result()
+    with open(outpath,'w',encoding='utf-8') as f:
+        f.write('experiment settings\n')
+        f.write('reader_exp_name : %s\n'%(reader_exp_name))
+        f.write('para_selection_method : %s\n'%(str(para_selection_method)))
+        f.write('decoder : %s\n'%(str(decoder_dict)))
+        f.write('##'*20)
+        f.write('Content:\n\n')
+        f.write(formated_result)
+
+def show_mrc_prediction_for_collected_qa_dataset(test_path,reader_name):
+    pass
 
 
-
-def evaluate_dureader(test_path,ranker_exp_name,reader_config_path):
-    batch_size = 24
-    #examples,labels = load_examples_from_scratch(test_path,attach_label='answer_docs')
-    loader = DureaderLoader(test_path)
-    ranker_input = {}
-    for sample in loader.sample_list:
-        question,passage = sample['question'],sample['passage']
-        if question not in ranker_input:
-            ranker_input[question] = []
-        ranker_input[question].append({'passage':passage})
-    
-    ranker =   RankerFactory.from_exp_name(ranker_exp_name,RANKER_CLASS='bert_pointwise')
-    print('ranking')
-    rank_result = ranker.rank(ranker_input,batch_size=batch_size)
-    reader = ReaderFactory.from_exp_name('reader/bert_default',READER_CLASS='bert_reader')
-    print('reading')
-    reader_result = reader.extract_answer(rank_result,batch_size=batch_size)
-    #for q,v in reader_result.items():
-    #    print(q)
-    #    for x in v:
-    #        print(x['span'])
-    #        print(x['span_score'])
-    #        print(x['rank_score'])
-    #    break
-    print('evaluating')
-    pred_answers  = MaxAllJudger().judge(reader_result)
-    answer_dict = loader.aggregate_by_filed('question')
-    print(pred_answers)
-    #evaluate_dureader_result(pred_answers,answer_dict)
-    #for pred, ref in zip(pred_answers, ref_answers):
-    #    question_id = ref['question_id']
-    #    if len(ref['answers']) > 0:
-    #        pred_dict[question_id] = normalize(pred['answers'])
-    #        ref_dict[question_id] = normalize(ref['answers'])
-    #    bleu_rouge = compute_bleu_rouge(pred_dict, ref_dict)
-
-    #reader = reader_factory(reader_config_path)
-    
+def show_prediction_for_demo_examples(reader_name,decoder_dict,test_path='./data/examples.txt',out_path='demo_mrc.txt'):
+    samples = demo_files.read_from_demo_txt_file(test_path)
+    reader = ReaderFactory.from_exp_name(reader_name,decoder_dict=decoder_dict)
+    _preds = reader.evaluate_on_records(samples,batch_size=128)
+    f = open(out_path,'w',encoding='utf-8')
+    for sample in _preds:
+        print('Question',file=f)
+        print(sample['question'],file=f)
+        print('Passage',file=f)
+        print('%s'%(sample['passage']),file=f)
+        print('--'*20,file=f)
+        print('Answer:',file=f)
+        print('%s'%(sample['span']),file=f)
+        print('# # #'*20,file=f)
 
 
-def test_dureader_bidaf_rc(test_path,reader_exp_name,para_selection_method):
-    print('test_dureader_bert_rc loading samples...')
-    #
-    #sample_list = loader.sample_list
-
-    
-    reader = ReaderFactory.from_exp_name(reader_exp_name,READER_CLASS='bidaf')
-    #reader_config = reader.config
-    #loader = DureaderLoader(test_path,para_selection_method,sample_fields=['question','answers','question_id','question_type'])
-    while True:
-        print('???')
-    #dataset  = BertRCDataset(losample_list,reader_config.MAX_QUERY_LEN,reader_config.MAX_SEQ_LEN,device=reader.device)
-    #print('make batch')
-    #iterator = dataset.make_batchiter(batch_size=128)
-    #_preds = reader.evaluate_on_batch(iterator)
-    #_preds = group_dict_list(_preds,'question_id')
-    #pred_answers  = MaxAllJudger().judge(_preds)
-
-    #evaluate_mrc_bert(pred_answers)
-
-
-    #answer_dict = group_dict_list(sample_list,'question_id', lambda x: {'answers':normalize([x[0]['answers']])})
-    
-    #print(answer_dict)
-    #print(pred_answers)
-    #evaluate_mrc_bidaf(pred_answers)
-
-
-def test_bleu_rouge():
-    bleu_rouge = compute_bleu_rouge({'aaa':['你好嗎'],'bbb':['澳斑馬']}, {'aaa':['你好嗎真的好嗎','不好啦'],'bbb':['澳洲','斑馬']})
-    print(bleu_rouge)
 
 
 
 DUREADER_DEV_ALL = ['./data/devset/search.dev.json','./data/devset/zhidao.dev.json']
 DEBUG_FILE = ['./data/demo/devset/search.dev.2.json']
 #evaluate_chiu_rank('pointwise/answer_doc')
-#test_dureader_bidaf_rc(DUREADER_DEV_ALL,'reader/bidaf','most_related_para')
 
-#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}})
+
+#test_dureader_bert_rc(DEBUG_FILE,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+
 #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
-test_dureader_bert_rc(DEBUG_FILE,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method={'class':'tfidf','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
 
+
+#show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+#show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}})
 
 

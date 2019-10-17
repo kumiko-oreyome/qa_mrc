@@ -50,6 +50,7 @@ def read_from_demo_txt_file(path='../data/examples.txt'):
 
 
 
+
 def find_best_span_from_probs(start_probs, end_probs,policy='greedy'):
         def greedy():
             best_start, best_end, max_prob = -1, -1, 0

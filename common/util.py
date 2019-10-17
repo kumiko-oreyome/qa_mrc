@@ -8,6 +8,8 @@ from .dureader_eval  import  compute_bleu_rouge,normalize
 # evaluate by the method of dureader bert probject
 
 
+
+
 # evaluate by the method of bidaf project provided by baidu
 def evaluate_mrc_bidaf(pred_answers):
     pred_for_bidaf_eval = {}
@@ -18,10 +20,8 @@ def evaluate_mrc_bidaf(pred_answers):
             continue
         pred_for_bidaf_eval[qid] = normalize([ best_pred['span']])
         ref_dict[qid]  = normalize(best_pred['answers'])
-    result = compute_bleu_rouge(pred_for_bidaf_eval,ref_dict)
-    print(result)
-    return result
-
+    print(compute_bleu_rouge(pred_for_bidaf_eval,ref_dict))
+       
 
 def evaluate_mrc_bert(pred_answers):
     pred_dict_for_eval = {}
@@ -92,7 +92,6 @@ def jsonl_reader(path):
         for line in f :
             json_obj = json.loads(line.strip(),encoding='utf-8')
             yield json_obj
-
 
 
 
