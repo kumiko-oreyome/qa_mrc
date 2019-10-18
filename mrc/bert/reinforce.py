@@ -100,6 +100,7 @@ class PolicySampleRanker():
 if __name__ == '__main__':
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
+    #TRAIN_PATH = ["./data/trainset/search.train.json"]
     #DEV_PATH = "./data/devset/search.dev.json"
     TRAIN_PATH = "./data/demo/devset/search.dev.2.json"
     DEV_PATH = "./data/demo/devset/search.dev.2.json"
@@ -108,18 +109,20 @@ if __name__ == '__main__':
     EPOCH = 10
     train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'])
     dev_loader = DureaderLoader(DEV_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs'])
+    print('load ranker')
     ranker = RankerFactory.from_exp_name(experiment.config.ranker_name,eval_flag=False)
+    print('load reader')
     reader = ReaderFactory.from_exp_name(experiment.config.reader_name,eval_flag=False)
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
-    BATCH_SIZE = 128
-
-    ranker_results = ranker.evaluate_on_records(train_loader.sample_list)
-    results_with_poicy_scores = transform_policy_score(ranker_results)
-    policy = PolicySampleRanker(results_with_poicy_scores)
-    sampled_records = policy.sample_per_question()
+    BATCH_SIZE = 32
     for epcoch in range(EPOCH):
+        print('start of epoch %d'%(epcoch))
+        ranker_results = ranker.evaluate_on_records(train_loader.sample_list,batch_size=BATCH_SIZE)
+        results_with_poicy_scores = transform_policy_score(ranker_results)
+        policy = PolicySampleRanker(results_with_poicy_scores)
+        sampled_records = policy.sample_per_question()
         train_batch = reader.get_batchiter(sampled_records,train_flag=True,batch_size=BATCH_SIZE)
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
         for  i,batch in enumerate(train_batch):
