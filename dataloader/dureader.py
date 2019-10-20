@@ -158,7 +158,16 @@ class BertRCDataset( RecordDataset):
             sample.update({'input_ids':input_ids,'input_mask':input_mask,'segment_ids':segment_ids})
             if train_flag:
                 ss,se =  sample['answer_spans'][0]
-                sample['answer_span'] = tmp['pos_map'][ss],tmp['pos_map'][se]
+                try:
+                    sample['answer_span'] = tmp['pos_map'][ss],tmp['pos_map'][se]
+                except:
+                    print('gg error...T_T')
+                    print(sample['question'])
+                    print(sample['passage'])
+                    print(ss,se)
+                    print('pos map (len : %d):'%(len(tmp['pos_map'])))
+                    print(tmp['pos_map'])
+                    assert False
                 
     def add_bert_fields(self):
         self.fields+= [('input_ids',self.bert_field),('input_mask',self.bert_field),('segment_ids',self.bert_field)]

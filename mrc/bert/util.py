@@ -29,7 +29,7 @@ class BertInputConverter():
         tokens.append("[SEP]")
         segment_ids.append(0)
         # for pos map
-        inc_n = len(token)
+        inc_n = len(tokens)
         pos_map = []
         for i,token in enumerate(list(passage)):
             tokens.append(token)

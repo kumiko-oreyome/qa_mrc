@@ -113,8 +113,8 @@ class BertPointwiseRanker():
         with torch.no_grad():
             preds = []
             for  i,batch in enumerate(iterator):
-                if (i+1) % 20 == 0:
-                    print('ranker : evaluate on %d batch'%(i))
+                #if (i+1) % 20 == 0:
+                #    print('ranker : evaluate on %d batch'%(i))
                 match_scores = self.predict_score_one_batch(batch)
                 if match_scores.is_cuda:
                     match_scores = match_scores.cpu()

@@ -139,8 +139,9 @@ if __name__ == '__main__':
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
-        train_loader.sample_list = list(filter(lambda x:len(x['answers'])>0,train_loader.sample_list ))
-        for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(BATCH_SIZE)):
+        train_loader.sample_list = list(filter(lambda x:len(x['answers'])>0 and len(x['answer_docs'])>0,train_loader.sample_list ))
+        print('start training loop')
+        for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(BATCH_SIZE*5)):
             if (i+1) % 20 == 0 :
                 print('reinfroce loop evaluate on %d batch'%(i))
                 reader_loss.print()
@@ -167,7 +168,7 @@ if __name__ == '__main__':
                 ranker_optimizer.step()
                 ranker_optimizer.zero_grad()
                 ranker_loss.add_record(loss.item())
-            print('supevisely train reader')
+            #print('supevisely train reader')
             #supevisely train reader
             train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
             train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=4) ###... reader batch size must be small ...
