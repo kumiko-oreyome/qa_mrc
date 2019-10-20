@@ -81,6 +81,25 @@ def policy_gradient(rewards,probs):
     loss =  rewards*torch.log(probs)
     return torch.mean(loss)
 
+
+class ReinforceBatchIter():
+    def __init__(self,sample_list):
+        self.sample_list = sample_list
+    def get_batchiter(self,batch_size,sample_field='question_id'):
+        df = pd.DataFrame.from_records(self.sample_list)
+        ret = []
+        for i,(group_name, df_group) in enumerate(df.groupby(sample_field)):
+            l = df_group.to_dict('records')
+            ret.extend(l)
+            if   (i+1)%batch_size==0:
+                yield ret
+                ret = []
+        if len(ret) > 0:
+            yield ret
+
+
+        
+
 class PolicySampleRanker():
     def __init__(self,records,score_field='policy_score'):
         self.records = records
@@ -116,48 +135,53 @@ if __name__ == '__main__':
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
-    BATCH_SIZE = 32
+    BATCH_SIZE = 64
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
-        ranker_results = ranker.evaluate_on_records(train_loader.sample_list,batch_size=BATCH_SIZE)
-        results_with_poicy_scores = transform_policy_score(ranker_results)
-        policy = PolicySampleRanker(results_with_poicy_scores)
-        sampled_records = policy.sample_per_question()
-        train_batch = reader.get_batchiter(sampled_records,train_flag=True,batch_size=BATCH_SIZE)
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
-        for  i,batch in enumerate(train_batch):
-            if i % 20 == 0 and i!=0:
+        train_loader.sample_list = list(filter(lambda x:len(x['answers'])>0,train_loader.sample_list ))
+        for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(BATCH_SIZE)):
+            if (i+1) % 20 == 0 :
                 print('reinfroce loop evaluate on %d batch'%(i))
                 reader_loss.print()
-            start_pos,end_pos = tuple(zip(*batch.answer_span))
-            start_pos,end_pos = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
-            loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos, end_positions=end_pos)
-            with torch.no_grad():
-                reader_predictions = reader.decode_batch(start_logits.detach(), end_logits.detach(),batch)
-                reader_predictions  = [{'question':d['question'],'passage':d['passage'],'answers':d['answers'],'rank_score':d['rank_score'],'span':d['span']} for d in reader_predictions]
-            loss.backward()
-            reader_optimizer.step()
-            reader_optimizer.zero_grad()
-            reader_loss.add_record(loss.item())
-            ##calculate rewards
-            
+            # rl train
+            print('rl train')
+            ranker_results = ranker.evaluate_on_records(rl_samples,batch_size=BATCH_SIZE)
+            results_with_poicy_scores = transform_policy_score(ranker_results)
+            policy = PolicySampleRanker(results_with_poicy_scores)
+            sampled_records = policy.sample_per_question()
+            # answer extraction 
+            reader_predictions = reader.evaluate_on_records(sampled_records,batch_size=BATCH_SIZE)
+            # calculate rewards
             for pred in reader_predictions:
-                pred_tokens = tokenizer.tokenize(pred['span'])
-                reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
-                pred['reward'] = reward
-                reward_tracer.add_record(reward)
-
-
-            ##prediction on ranker (with grad)
+                 pred_tokens = tokenizer.tokenize(pred['span'])
+                 reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
+                 pred['reward'] = reward
+                 reward_tracer.add_record(reward)
+            # policy_gradient
+            print('policy gradient')
             for  ranker_batch in ranker.get_batchiter(reader_predictions,batch_size=BATCH_SIZE):
                 ##prediction on ranker (with grad)
                 rewards = torch.tensor(ranker_batch.reward,device=ranker.device,dtype=torch.float)
-                ranker_probs = ranker.predict_score_one_batch(batch)
+                ranker_probs = ranker.predict_score_one_batch(ranker_batch)
                 loss = policy_gradient(rewards,ranker_probs)
                 loss.backward()
                 ranker_optimizer.step()
                 ranker_optimizer.zero_grad()
                 ranker_loss.add_record(loss.item())
+            print('supevisely train reader')
+            #supevisely train reader
+            train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
+            train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=BATCH_SIZE)
+            for  batch in train_batch:
+                start_pos,end_pos = tuple(zip(*batch.answer_span))
+                start_pos,end_pos = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
+                loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos, end_positions=end_pos)
+                loss.backward()
+                reader_optimizer.step()
+                reader_optimizer.zero_grad()
+                reader_loss.add_record(loss.item())
+        
         print('EPOCH: %d'%(epcoch))
         reader_loss.print('reader avg loss:')
         ranker_loss.print('ranker avg loss:')

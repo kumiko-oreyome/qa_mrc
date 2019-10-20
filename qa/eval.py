@@ -223,6 +223,7 @@ DEBUG_FILE = ['./data/demo/devset/search.dev.2.json']
 
 #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
 #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
-show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}})
+show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}},out_path='bert_default_k=1.txt')
+show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
 
 
