@@ -176,7 +176,15 @@ if __name__ == '__main__':
                 start_pos,end_pos = tuple(zip(*batch.answer_span))
                 start_pos,end_pos = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
                 loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos, end_positions=end_pos)
-                loss.backward()
+                try:
+                    loss.backward()
+                except:
+                    print(loss.item())
+                    for item in batch:
+                        print(batch.question)
+                        print(batch.passage)
+                        print(batch.answer_span)   
+                    assert False
                 reader_optimizer.step()
                 reader_optimizer.zero_grad()
                 reader_loss.add_record(loss.item())
