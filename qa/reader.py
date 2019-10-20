@@ -97,7 +97,7 @@ class BertReader():
         preds = []
         with torch.no_grad():
             for  i,batch in enumerate(iterator):
-                if i % 20 == 0:
+                if (i+1) % 20 == 0:
                     print('evaluate on %d batch'%(i))
                 preds.extend(self.predict_one_batch(batch))
         return  preds

@@ -121,7 +121,7 @@ if __name__ == '__main__':
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
     #TRAIN_PATH = ["./data/trainset/search.train.json"]
     #DEV_PATH = "./data/devset/search.dev.json"
-    TRAIN_PATH = "./data/demo/devset/search.dev.2.json"
+    TRAIN_PATH = "./data/demo/devset/search.dev.json"
     DEV_PATH = "./data/demo/devset/search.dev.2.json"
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
-    BATCH_SIZE = 64
+    BATCH_SIZE = 24
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
@@ -145,7 +145,6 @@ if __name__ == '__main__':
                 print('reinfroce loop evaluate on %d batch'%(i))
                 reader_loss.print()
             # rl train
-            print('rl train')
             ranker_results = ranker.evaluate_on_records(rl_samples,batch_size=BATCH_SIZE)
             results_with_poicy_scores = transform_policy_score(ranker_results)
             policy = PolicySampleRanker(results_with_poicy_scores)
@@ -159,7 +158,6 @@ if __name__ == '__main__':
                  pred['reward'] = reward
                  reward_tracer.add_record(reward)
             # policy_gradient
-            print('policy gradient')
             for  ranker_batch in ranker.get_batchiter(reader_predictions,batch_size=BATCH_SIZE):
                 ##prediction on ranker (with grad)
                 rewards = torch.tensor(ranker_batch.reward,device=ranker.device,dtype=torch.float)
@@ -172,7 +170,7 @@ if __name__ == '__main__':
             print('supevisely train reader')
             #supevisely train reader
             train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
-            train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=BATCH_SIZE)
+            train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=4) ###... reader batch size must be small ...
             for  batch in train_batch:
                 start_pos,end_pos = tuple(zip(*batch.answer_span))
                 start_pos,end_pos = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
