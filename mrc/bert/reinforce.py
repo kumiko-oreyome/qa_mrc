@@ -119,10 +119,10 @@ class PolicySampleRanker():
 if __name__ == '__main__':
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
-    #TRAIN_PATH = ["./data/trainset/search.train.json"]
-    #DEV_PATH = "./data/devset/search.dev.json"
-    TRAIN_PATH = "./data/demo/devset/search.dev.json"
-    DEV_PATH = "./data/demo/devset/search.dev.2.json"
+    TRAIN_PATH = ["./data/trainset/search.train.json"]
+    DEV_PATH = "./data/devset/search.dev.json"
+    #TRAIN_PATH = "./data/demo/devset/search.dev.json"
+    #DEV_PATH = "./data/demo/devset/search.dev.2.json"
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
     EPOCH = 10
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
-    BATCH_SIZE = 24
+    BATCH_SIZE = 16
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
@@ -173,18 +173,10 @@ if __name__ == '__main__':
             train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
             train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=4) ###... reader batch size must be small ...
             for  batch in train_batch:
-                start_pos,end_pos = tuple(zip(*batch.answer_span))
-                start_pos,end_pos = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
-                loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos, end_positions=end_pos)
-                try:
-                    loss.backward()
-                except:
-                    print(loss.item())
-                    for item in batch:
-                        print(batch.question)
-                        print(batch.passage)
-                        print(batch.answer_span)   
-                    assert False
+                start_pos,end_pos = tuple(zip(*batch.bert_span))
+                start_pos_t,end_pos_t = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
+                loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos_t, end_positions=end_pos_t)
+                loss.backward()
                 reader_optimizer.step()
                 reader_optimizer.zero_grad()
                 reader_loss.add_record(loss.item())

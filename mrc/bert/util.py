@@ -39,7 +39,7 @@ class BertInputConverter():
         segment_ids.append(1)
         if len(tokens) > max_seq_len:
             tokens[max_seq_len-1] = "[SEP]"
-            pos_map = pos_map[0:max_seq_len-1]+[max_seq_len-2  for i in range( max_seq_len-1,len(pos_map))]
+            pos_map = pos_map[0:max_seq_len-1-inc_n]+[max_seq_len-2  for i in range( max_seq_len-1-inc_n,len(pos_map))]
             input_ids = self.tokenizer.convert_tokens_to_ids(tokens[:max_seq_len])      ## !!! SEP
             segment_ids = segment_ids[:max_seq_len]
         else:
