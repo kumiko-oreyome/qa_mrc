@@ -4,7 +4,7 @@ from bert.tokenization import BertTokenizer
 from torchtext.data import Dataset,Example,RawField,Iterator,Field
 import functools
 from rank.datautil import generate_bert_pointwise_input
-from qa.para_select import ParagraphSelectorFactory
+from qa.para_select import ParagraphSelectorFactory,ParagraphSelector
 
 #DEFAULT_IGNORE_SAMPLE_FEILDS = ['answer_spans','answer_docs','fake_answers','answers','question_type']
 #DEFAULT_IGNORE_DOC_FEILDS = ['title','most_related_para']
@@ -90,6 +90,8 @@ class DureaderLoader():
         self.doc_fields = doc_fields
         self.sample_list = []
         if paragraph_selection is None or type(paragraph_selection)==str:
+            self.paragraph_selector = paragraph_selection
+        elif isinstance(paragraph_selection,ParagraphSelector):
             self.paragraph_selector = paragraph_selection
         else:
             self.paragraph_selector = ParagraphSelectorFactory.create_selector(self.paragraph_selection)

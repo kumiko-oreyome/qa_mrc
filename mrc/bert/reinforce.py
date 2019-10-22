@@ -5,6 +5,7 @@ from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
 from qa.judger import MaxAllJudger,MultiplyJudger
+from qa.para_select import BertRankerSelector
 from common.dureader_eval  import  compute_bleu_rouge,normalize
 from common.experiment import Experiment
 from common.util import  group_dict_list,RecordGrouper,evaluate_mrc_bidaf
@@ -126,7 +127,7 @@ if __name__ == '__main__':
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
     #TRAIN_PATH = ["./data/trainset/search.train.json"]
     #DEV_PATH = "./data/devset/search.dev.json"
-    TRAIN_PATH = "./data/demo/devset/search.dev.json"
+    TRAIN_PATH = "./data/demo/devset/search.dev.2.json"
     DEV_PATH = "./data/demo/devset/search.dev.2.json"
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
@@ -142,7 +143,6 @@ if __name__ == '__main__':
             sample['char_spans'] = [0,0]
             del sample['answer_spans']
             del sample['segmented_paragraphs']
-    dev_loader = DureaderLoader(DEV_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs'])
     print('load ranker')
     ranker = RankerFactory.from_exp_name(experiment.config.ranker_name,eval_flag=False)
     print('load reader')
@@ -202,11 +202,15 @@ if __name__ == '__main__':
         print('metrics')
         #here must let ranker to select paragraph to evaluate the effect of policy gradient
         reader.model = reader.model.eval()
-        _preds = reader.evaluate_on_batch(reader.get_batchiter(dev_loader.sample_list,batch_size=BATCH_SIZE))
+        ranker.model = ranker.model.eval()
+        para_selector = BertRankerSelector(ranker)
+        loader = DureaderLoader(DEV_PATH,para_selector,sample_fields=['question','answers','question_id','question_type'])
+        _preds = reader.evaluate_on_records(loader.sample_list,batch_size=BATCH_SIZE)
         _preds = group_dict_list(_preds,'question_id')
         pred_answers  = MaxAllJudger().judge(_preds)
         evaluate_result = evaluate_mrc_bidaf(pred_answers)
         reader.model = reader.model.train()
+        ranker.model = ranker.model.train()
         higest_bleu = 0.0
         if evaluate_result['Bleu-4'] >  higest_bleu:
             higest_bleu = evaluate_result['Bleu-4']

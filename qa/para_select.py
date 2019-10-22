@@ -50,11 +50,13 @@ class WordMatchSelector(ParagraphSelector):
 
 
 class BertRankerSelector(ParagraphSelector):
-    def __init__(self,ranker_name,k=1):
+    def __init__(self,ranker,k=1):
         super().__init__(k)
-        self.ranker = qa_ranker.RankerFactory.from_exp_name(ranker_name)
-        
-
+        if type(ranker)==str:
+            self.ranker = qa_ranker.RankerFactory.from_exp_name(ranker)
+        else:
+            self.ranker = ranker
+            
     def evaluate_scores(self,sample_list):
         return self.ranker.evaluate_on_records(sample_list)
 

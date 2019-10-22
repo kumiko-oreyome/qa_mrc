@@ -165,6 +165,7 @@ def test_dureader_bert_rc(test_path,reader_exp_name,para_selection_method,decode
     evaluate_mrc_bidaf(pred_answers)
 
 
+
 def show_prediction_for_dureader(paths,outpath,reader_exp_name,para_selection_method,decoder_dict=None):
     print('show_prediction_for_dureader')
     loader = DureaderLoader(paths,para_selection_method,sample_fields=['question','answers','question_id','question_type'])
@@ -209,21 +210,22 @@ def show_prediction_for_demo_examples(reader_name,decoder_dict,test_path='./data
 
 
 
-DUREADER_DEV_ALL = ['./data/devset/search.dev.json','./data/devset/zhidao.dev.json']
-DEBUG_FILE = ['./data/demo/devset/search.dev.2.json']
-#evaluate_chiu_rank('pointwise/answer_doc')
+if __name__ == '__main__':
+    DUREADER_DEV_ALL = ['./data/devset/search.dev.json','./data/devset/zhidao.dev.json']
+    DEBUG_FILE = ['./data/demo/devset/search.dev.2.json']
+    #evaluate_chiu_rank('pointwise/answer_doc')
 
 
-#test_dureader_bert_rc(DEBUG_FILE,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+    #test_dureader_bert_rc(DEBUG_FILE,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
 
-#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
-#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
-#test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method={'class':'tfidf','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+    #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method={'class':'tfidf','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
 
 
-#show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
-#show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
-show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}},out_path='bert_default_k=1.txt')
-show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
+    #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
+    #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}},out_path='bert_default_k=1.txt')
+    show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
 
 
