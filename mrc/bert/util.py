@@ -15,7 +15,7 @@ def preprocessing_charspan(sample):
         print(passage)
         print(answer_text)
     assert cstart >= 0
-    cend = cstart + len(passage)-1
+    cend = cstart + len(answer_text)-1
     sample['passage'] = passage
     sample['char_spans'] = [[cstart,cend]]
     del sample['segmented_paragraphs']

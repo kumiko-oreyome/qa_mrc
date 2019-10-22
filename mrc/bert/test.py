@@ -42,11 +42,13 @@ def test_bert_input_convert():
 def test_preprocessing_charspan():
     from dataloader.dureader import DureaderLoader
     from .util import preprocessing_charspan
-    loader = DureaderLoader("./data/demo/devset/search.dev.2.json" ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'],\
+    loader = DureaderLoader("./data/demo/devset/search.dev.json" ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'],\
         doc_fields=['segmented_paragraphs'])
     #print(len(loader.sample_list))
     #print(loader.sample_list[1])
     for sample in loader.sample_list:
+        if len(sample['answer_spans'])==0:
+            continue
         word_tokens = sample['segmented_paragraphs']
         preprocessing_charspan(sample)
         passage = sample['passage']
