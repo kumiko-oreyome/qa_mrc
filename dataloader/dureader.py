@@ -159,7 +159,7 @@ class BertRCDataset( RecordDataset):
         self.add_bert_fields()
 
         if train_flag:
-            self.sample_list = [d for d in self.sample_list if len(d['answer_spans'])==1]
+            self.sample_list = [d for d in self.sample_list if len(d['char_spans'])==1]
         for sample in self.sample_list:
             tmp =  self.cvt.convert(sample['question'],sample['passage'],self.max_query_length, self.max_seq_length,to_tensor=False)
             (input_ids, input_mask, segment_ids) = tmp['input'],tmp['att_mask'], tmp['seg']
