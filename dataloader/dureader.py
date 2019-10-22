@@ -171,7 +171,7 @@ class BertRCDataset( RecordDataset):
     def add_bert_fields(self):
         self.fields+= [('input_ids',self.bert_field),('input_mask',self.bert_field),('segment_ids',self.bert_field)]
         if self.train_flag:
-            self.fields.append(('char_spans',self.bert_field))
+            self.fields.append(('bert_span',self.bert_field))
 
     def make_dataset(self):
         l = []
