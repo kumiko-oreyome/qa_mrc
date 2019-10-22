@@ -1,5 +1,6 @@
 
 import torch
+from .util import preprocessing_charspan
 from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
@@ -22,6 +23,10 @@ from torch.optim import SGD
 # fileds answer_doc question question_id passages answers
 # ranker prediction --> get rank scores on all records
 # normalize scores on same question  to probality (policy) and select a passage by policy
+
+
+
+
 
 
 class MetricTracer():
@@ -119,14 +124,24 @@ class PolicySampleRanker():
 if __name__ == '__main__':
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
-    TRAIN_PATH = ["./data/trainset/search.train.json"]
-    DEV_PATH = "./data/devset/search.dev.json"
-    #TRAIN_PATH = "./data/demo/devset/search.dev.json"
-    #DEV_PATH = "./data/demo/devset/search.dev.2.json"
+    #TRAIN_PATH = ["./data/trainset/search.train.json"]
+    #DEV_PATH = "./data/devset/search.dev.json"
+    TRAIN_PATH = "./data/demo/devset/search.dev.json"
+    DEV_PATH = "./data/demo/devset/search.dev.2.json"
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
     EPOCH = 10
-    train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'])
+    train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'],\
+        doc_fields=['segmented_paragraphs'])
+    print('preprocessing span for  train data')
+    train_loader.sample_list = list(filter(lambda x:len(x['answers'])>0 and len(x['answer_docs'])>0,train_loader.sample_list ))
+    for sample in  train_loader.sample_list:
+        if sample["doc_id"] == sample['answer_docs'][0]:
+            preprocessing_charspan(sample)
+        else:
+            sample['char_spans'] = [0,0]
+            del sample['answer_spans']
+            del sample['segmented_paragraphs']
     dev_loader = DureaderLoader(DEV_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs'])
     print('load ranker')
     ranker = RankerFactory.from_exp_name(experiment.config.ranker_name,eval_flag=False)
@@ -139,7 +154,6 @@ if __name__ == '__main__':
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
-        train_loader.sample_list = list(filter(lambda x:len(x['answers'])>0 and len(x['answer_docs'])>0,train_loader.sample_list ))
         print('start training loop')
         for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(BATCH_SIZE*5)):
             if (i+1) % 20 == 0 :

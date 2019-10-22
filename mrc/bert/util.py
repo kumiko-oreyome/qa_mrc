@@ -3,6 +3,26 @@ from bert.modeling import BertForQuestionAnswering, BertConfig
 import torch
 
 
+
+
+def preprocessing_charspan(sample):
+    passage_tokens = sample['segmented_paragraphs']
+    wstart,wend = sample['answer_spans'][0]
+    answer_text = "".join(passage_tokens[wstart:wend+1])
+    passage = "".join(passage_tokens)
+    cstart = passage.find(answer_text)
+    if cstart == -1:
+        print(passage)
+        print(answer_text)
+    assert cstart >= 0
+    cend = cstart + len(passage)-1
+    sample['passage'] = passage
+    sample['char_spans'] = [[cstart,cend]]
+    del sample['segmented_paragraphs']
+    del sample['answer_spans']
+
+
+
 def  load_bert_rc_model(config_path,wieght_path,device=None):
     config = BertConfig(config_path)
     model = BertForQuestionAnswering(config)
@@ -11,7 +31,10 @@ def  load_bert_rc_model(config_path,wieght_path,device=None):
         return model.to(device)
     return model.cpu()
 
-
+## warning BertTokenizer is not only just  convert string to just character list
+## it involves some whitespace preprocessing  
+## so using list(question) is not perfect
+## using list also cannot handle too long text ....
 class BertInputConverter():
     def __init__(self,tokenizer):
         self.tokenizer = tokenizer

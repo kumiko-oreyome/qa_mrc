@@ -10,6 +10,12 @@ from qa.para_select import ParagraphSelectorFactory
 #DEFAULT_IGNORE_DOC_FEILDS = ['title','most_related_para']
 
 
+
+    
+
+
+
+
 class DefaultSampleTransform():
     def __init__(self):
         pass
@@ -62,6 +68,8 @@ class DureaderRawDocument():
         for para_id,passage in enumerate(self.get_paragraphs()):
             obj = {'passage':passage,'passage_id':para_id}
             obj.update({ k:self.json_obj[k] for k in fields})
+            if 'segmented_paragraphs' in fields:
+                obj['segmented_paragraphs'] = obj['segmented_paragraphs'][para_id]
             ret.append(obj)
         return ret
 
@@ -157,13 +165,13 @@ class BertRCDataset( RecordDataset):
             (input_ids, input_mask, segment_ids) = tmp['input'],tmp['att_mask'], tmp['seg']
             sample.update({'input_ids':input_ids,'input_mask':input_mask,'segment_ids':segment_ids})
             if train_flag:
-                ss,se =  sample['answer_spans'][0] 
+                ss,se =  sample['char_spans'][0] 
                 sample['bert_span'] = tmp['pos_map'][ss],tmp['pos_map'][se]
                 
     def add_bert_fields(self):
         self.fields+= [('input_ids',self.bert_field),('input_mask',self.bert_field),('segment_ids',self.bert_field)]
         if self.train_flag:
-            self.fields.append(('bert_span',self.bert_field))
+            self.fields.append(('char_spans',self.bert_field))
 
     def make_dataset(self):
         l = []
