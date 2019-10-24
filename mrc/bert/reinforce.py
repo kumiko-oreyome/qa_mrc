@@ -54,7 +54,14 @@ def transform_policy_score(ranker_results,field_name='rank_score'):
         ret.extend(df.to_dict('records'))
     return ret
        
-
+#except Exception as e:^M
+#            import json^M
+#            with open('data.json', 'w',encoding='utf-8') as f:^M
+#                json.dump(ranker_results, f)^M
+#            print(e)^M
+#            import pdb^M
+#            pdb.set_trace()^M
+#            print('aaa')^
 def text_overlap_precision(text_words,answer_words):
     s1 = set(text_words)
     if len(s1) == 0:
@@ -84,7 +91,7 @@ def reward_function_word_overlap(prediction,ground_truth):
 
 
 def policy_gradient(rewards,probs):
-    loss =  rewards*torch.log(probs)
+    loss =  rewards*torch.log(probs+0.00000001)
     return torch.mean(loss)
 
 
@@ -150,7 +157,7 @@ if __name__ == '__main__':
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
-    BATCH_SIZE = 16
+    BATCH_SIZE = 12
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
@@ -209,6 +216,14 @@ if __name__ == '__main__':
         _preds = group_dict_list(_preds,'question_id')
         pred_answers  = MaxAllJudger().judge(_preds)
         evaluate_result = evaluate_mrc_bidaf(pred_answers)
+
+
+
+        # evaluate ranker
+        from qa.eval import evaluate_dureader_ranker
+        print('evaluate ranker')
+        evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=False)
+
         reader.model = reader.model.train()
         ranker.model = ranker.model.train()
         higest_bleu = 0.0

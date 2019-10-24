@@ -71,6 +71,22 @@ def recall(rank_dict,k=1):
         cnt+=1
     return tot/cnt
 
+def accuracy(rank_dict):
+    tot = 0
+    cnt = 0
+    for q,v in rank_dict.items():
+        if len(v) == 0:
+             continue
+        acc =0 
+        for pred in v:
+            if pred['rank_score']>=0.5 and pred['label']==1:
+                acc+=1
+            elif  pred['rank_score']<0.5 and pred['label']==0:
+                acc+=1
+        tot+= acc /len(v)
+        cnt+=1
+    return tot/cnt
+
 def evaluate_chiu_rank(ranker_exp_name):
     examples = chiuteacher.read_qa_txt('./data/chiuteacher/問題和答案_分類1.csv')
     print('%d chiu examples'%(len(examples)))
@@ -78,7 +94,7 @@ def evaluate_chiu_rank(ranker_exp_name):
     records = [dict(zip(['question','passage','label'], values)) for values in pairwise_examples ]
     print('%d chiu pairwise records'%(len(records)))
 
-    ranker =   RankerFactory.from_exp_name(ranker_exp_name,RANKER_CLASS='bert_pointwise')
+    ranker =   RankerFactory.from_exp_name(ranker_exp_name)
     ranker_config = ranker.config
     rank_dataset = BertRankDataset(records,ranker_config.BERT_SERIALIZATION_DIR,ranker_config.MAX_PASSAGE_LEN,ranker_config.MAX_SEQ_LEN)
     iterator =  rank_dataset.make_batchiter(batch_size=128)
@@ -102,55 +118,37 @@ def evaluate_chiu_rank(ranker_exp_name):
 
 
 
-
-
-
-def test_dureader_bert_rc_with_ranker_XXX(test_path,ranker_exp_name,reader_exp_name,para_selection_method,judge_method,decode_policy='greedy',batch_size=128):
-    print('test_dureader_bert_rc loading samples...')
-    loader = DureaderLoader(test_path,para_selection_method,sample_fields=['question','answers','question_id','question_type'])
-
-    ranker =   RankerFactory.from_exp_name(ranker_exp_name,RANKER_CLASS='bert_pointwise')
-    ranker_config = ranker.config
-
-    rank_dataset = BertRankDataset(loader.sample_list,ranker_config.BERT_SERIALIZATION_DIR,ranker_config.MAX_PASSAGE_LEN,ranker_config.MAX_SEQ_LEN)
-    iterator =  rank_dataset.make_batchiter(batch_size=batch_size)
-    rank_results = ranker.evaluate_on_batch(iterator)
-
-    sorted_results = RecordGrouper(rank_results).group_sort('question','rank_score')
-    #for q,v  in sorted_results.items():
-    #    print(q)
-    #    print('- - -')
-    #    for obj in v:
-    #        print(obj['passage'][0:100])
-    #        print(obj['rank_score'])
-    #        print('**'*10)
-    #ranked_sample_list = RecordGrouper.from_group_dict('question',sorted_results).to_records()
-    #print(rank_results[0:2])
-    reader = ReaderFactory.from_exp_name(reader_exp_name,READER_CLASS='bert_reader',decode_policy='greedy')
-    reader_config = reader.config
-
-    dataset  = BertRCDataset(rank_results,reader_config.MAX_QUERY_LEN,reader_config.MAX_SEQ_LEN,device=reader.device)
-    print('make batch')
-    iterator = dataset.make_batchiter(batch_size=batch_size)
-    extracted_answer = reader.evaluate_on_batch(iterator)
-    extracted_answer_dict = RecordGrouper(extracted_answer).group('question_id')
-    if judge_method is 'max_all':
-        pred_answers  = MaxAllJudger().judge(extracted_answer_dict)
-    elif judge_method is 'multiply':
-        pred_answers  = MultiplyJudger().judge(extracted_answer_dict)
-    else:
-        assert False
-    
-    #for q,v  in pred_answers.items():
-    #    print(q)
-    #    print('- - -')
-    #    for obj in v:
-    #        print(obj['span'])
-    #        print(obj['rank_score'])
-    #        print(obj['span_score'])
-    #        print('**'*10)
-    evaluate_mrc_bert(pred_answers)
-
+def evaluate_dureader_ranker(paths,ranker,batch_size=64,print_detail=True):
+    if type(ranker)==str:
+        ranker = RankerFactory.from_exp_name(ranker)
+    loader = DureaderLoader(paths,'most_related_para',sample_fields=['question','question_id','answer_docs'])
+    samples_to_evaluate = []
+    for sample in loader.sample_list:
+        if len(sample['answer_docs']) == 0:
+            continue
+        label = 0
+        if sample['doc_id'] == sample['answer_docs'][0]:
+            label = 1
+        sample['label'] = label
+        samples_to_evaluate.append(sample)
+    rank_results = ranker.evaluate_on_records(samples_to_evaluate,batch_size=batch_size)
+    print( len(rank_results))
+    sorted_results = RecordGrouper(rank_results).group_sort('question','rank_score',50)
+    if print_detail:
+        for k,v in sorted_results.items():
+            print('question:')
+            print(k)
+            for x in v[0:10]:
+                print('\t\t'+x['passage'][0:100])
+                print('\t\t %.3f'%(x['rank_score']))
+                print('# #'*10)
+                print('\n')
+    print('precision is ')
+    print(precision(sorted_results,k=1))
+    print('recall is ')
+    print(recall(sorted_results,k=1))
+    print('accuracy is')
+    print(accuracy(sorted_results))
 
 
 def test_dureader_bert_rc(test_path,reader_exp_name,para_selection_method,decoder_dict=None):
@@ -225,7 +223,10 @@ if __name__ == '__main__':
 
     #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
     #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
-    show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}},out_path='bert_default_k=1.txt')
-    show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
+    #show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}},out_path='bert_default_k=1.txt')
+    #show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
+
+
+    evaluate_dureader_ranker('./data/demo/devset/search.dev.json','pointwise/answer_doc')
 
 

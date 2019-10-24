@@ -155,7 +155,7 @@ class BertRCDataset( RecordDataset):
         super(BertRCDataset,self).__init__(sample_list,device)
         self.max_query_length = max_query_length
         self.max_seq_length = max_seq_length
-        self.tokenizer =  BertTokenizer.from_pretrained('bert-base-chinese', do_lower_case=True)
+        self.tokenizer = BertTokenizer('%s/vocab.txt'%('./pretrained/chinese_wwm_ext_pytorch'))
         self.cvt = BertInputConverter(self.tokenizer)
         self.train_flag = train_flag
         self.add_bert_fields()

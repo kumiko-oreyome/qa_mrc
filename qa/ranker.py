@@ -129,7 +129,6 @@ class BertPointwiseRanker():
         match_scores = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
         match_scores  = torch.nn.Sigmoid()(match_scores) # N,2
         match_scores  =  match_scores[:,1] #  N  ,get positve socre
-        match_scores = match_scores
         return match_scores
 
 
