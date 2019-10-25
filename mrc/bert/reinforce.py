@@ -41,6 +41,8 @@ class MetricTracer():
         self.tot+=record
         self.n+=1
     def avg(self):
+        if self.tot == 0:
+            return 0
         return self.tot/self.n
     def print(self,prefix=''):
         print('%s%.3f'%(prefix,self.avg()))
@@ -111,7 +113,8 @@ class ReinforceBatchIter():
             yield ret
 
 
-        
+
+
 
 class PolicySampleRanker():
     def __init__(self,records,score_field='policy_score'):
@@ -130,6 +133,8 @@ class PolicySampleRanker():
 
 
 if __name__ == '__main__':
+    # evaluate ranker
+    from qa.eval import evaluate_dureader_ranker
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
     #TRAIN_PATH = ["./data/trainset/search.train.json"]
@@ -139,6 +144,9 @@ if __name__ == '__main__':
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
     EPOCH = 10
+
+    TRAIN_READER= False
+
     train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'],\
         doc_fields=['segmented_paragraphs'])
     print('preprocessing span for  train data')
@@ -158,12 +166,19 @@ if __name__ == '__main__':
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.00001, momentum=0.9)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00001, momentum=0.9)
     BATCH_SIZE = 12
+
+    print('ranker performance before traning')
+    ranker.model = ranker.model.eval()
+    evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=False)
+    ranker.model = ranker.model.train()
+
+
     for epcoch in range(EPOCH):
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
         print('start training loop')
         for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(BATCH_SIZE*5)):
-            if (i+1) % 20 == 0 :
+            if (i+1) % 100 == 0 :
                 print('reinfroce loop evaluate on %d batch'%(i))
                 reader_loss.print()
             # rl train
@@ -191,16 +206,17 @@ if __name__ == '__main__':
                 ranker_loss.add_record(loss.item())
             #print('supevisely train reader')
             #supevisely train reader
-            train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
-            train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=4) ###... reader batch size must be small ...
-            for  batch in train_batch:
-                start_pos,end_pos = tuple(zip(*batch.bert_span))
-                start_pos_t,end_pos_t = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
-                loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos_t, end_positions=end_pos_t)
-                loss.backward()
-                reader_optimizer.step()
-                reader_optimizer.zero_grad()
-                reader_loss.add_record(loss.item())
+            if TRAIN_READER:
+                train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
+                train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=4) ###... reader batch size must be small ...
+                for batch in train_batch:
+                    start_pos,end_pos = tuple(zip(*batch.bert_span))
+                    start_pos_t,end_pos_t = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
+                    loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos_t, end_positions=end_pos_t)
+                    loss.backward()
+                    reader_optimizer.step()
+                    reader_optimizer.zero_grad()
+                    reader_loss.add_record(loss.item())
         
         print('EPOCH: %d'%(epcoch))
         reader_loss.print('reader avg loss:')
@@ -219,8 +235,6 @@ if __name__ == '__main__':
 
 
 
-        # evaluate ranker
-        from qa.eval import evaluate_dureader_ranker
         print('evaluate ranker')
         evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=False)
 
