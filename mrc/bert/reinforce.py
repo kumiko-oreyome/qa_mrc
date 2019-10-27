@@ -53,7 +53,11 @@ def transform_policy_score(ranker_results,field_name='rank_score'):
     for _,v in grouper.group('question_id').items():
         df = pd.DataFrame.from_records(v)
         df['policy_score']= df[field_name]/df[field_name].sum()
-        ret.extend(df.to_dict('records'))
+        records = df.to_dict('records')
+        answer_score = [record for record in records if record['answer_docs'][0]==record["doc_id"]][0]['policy_score']
+        for r in records:
+            r['answer_score'] =  answer_score
+        ret.extend(records)
     return ret
 
 def negative_sampleing(records,k):
@@ -150,7 +154,7 @@ if __name__ == '__main__':
     DEV_PATH = "./data/demo/devset/search.dev.2.json"
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
-    EPOCH = 10
+    EPOCH = 50
 
     TRAIN_READER= False
 
@@ -201,6 +205,8 @@ if __name__ == '__main__':
                  pred_tokens = tokenizer.tokenize(pred['span'])
                  reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
                  pred['reward'] = reward
+                 # add reward by postive answer score maybe can learn faster
+                 pred['reward']+= pred['answer_score']-pred['policy_score']
                  reward_tracer.add_record(reward)
             # policy_gradient
             for  ranker_batch in ranker.get_batchiter(reader_predictions,batch_size=BATCH_SIZE):
