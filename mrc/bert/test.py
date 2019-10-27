@@ -1,5 +1,5 @@
 from rank.datautil import test_1,test_2,test_group_tuples,test_evaluate_on_file
-from .reinforce import ReinforceBatchIter
+from .reinforce import ReinforceBatchIter,negative_sampleing
 #test_3()
 
 #test_evaluate_on_file()
@@ -57,12 +57,19 @@ def test_preprocessing_charspan():
     print(loader.sample_list[3])
 
 
+def test_reinforce_negatvie_sampling():
+    k = 1
+    records = [{'doc_id':0,'answer_docs':[1],'question_id':8787,'text':"text1"},{'doc_id':1,'answer_docs':[1],'question_id':8787,'text':"text2"},{'doc_id':2,'answer_docs':[1],'question_id':8787,'text':"text3"},\
+        {'doc_id':0,'answer_docs':[0],'question_id':5757,'text':"text21"}]
+    print(negative_sampleing(records,k))
 
 
+
+test_reinforce_negatvie_sampling()
 
 #def test_bert_tokenize():
 #    from bert.tokenization import  BertTokenizer
 #    tokenizer =  BertTokenizer('./pretrained/chinese_wwm_ext_pytorch/vocab.txt', do_lower_case=True)
 #     tokenizer
     
-test_preprocessing_charspan()
+#test_preprocessing_charspan()

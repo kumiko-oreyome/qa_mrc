@@ -55,15 +55,22 @@ def transform_policy_score(ranker_results,field_name='rank_score'):
         df['policy_score']= df[field_name]/df[field_name].sum()
         ret.extend(df.to_dict('records'))
     return ret
-       
-#except Exception as e:^M
-#            import json^M
-#            with open('data.json', 'w',encoding='utf-8') as f:^M
-#                json.dump(ranker_results, f)^M
-#            print(e)^M
-#            import pdb^M
-#            pdb.set_trace()^M
-#            print('aaa')^
+
+def negative_sampleing(records,k):
+    if k is None:
+        return records
+    grouper = RecordGrouper(records)
+    ret = []
+    for _,v in grouper.group('question_id').items():
+        pos_sample = [sample for sample in v if sample["doc_id"] == sample['answer_docs'][0]]
+        assert len(pos_sample)==1
+        pos_sample = pos_sample[0]
+        neg_samples = [sample for sample in v if sample["doc_id"] != sample['answer_docs'][0]]
+        neg_samples = np.random.choice(neg_samples,size=min(k,len(neg_samples)),replace=False)
+        ret.append(pos_sample)
+        ret.extend(neg_samples)
+    return ret
+
 def text_overlap_precision(text_words,answer_words):
     s1 = set(text_words)
     if len(s1) == 0:
@@ -183,7 +190,8 @@ if __name__ == '__main__':
                 reader_loss.print()
             # rl train
             ranker_results = ranker.evaluate_on_records(rl_samples,batch_size=BATCH_SIZE)
-            results_with_poicy_scores = transform_policy_score(ranker_results)
+            neg_sample_records = negative_sampleing(ranker_results,k=1)
+            results_with_poicy_scores = transform_policy_score(neg_sample_records)
             policy = PolicySampleRanker(results_with_poicy_scores)
             sampled_records = policy.sample_per_question()
             # answer extraction 
