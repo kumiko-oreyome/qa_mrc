@@ -25,6 +25,8 @@ class QARankedListFormater():
             #    buf.write('answer is \n')
             buf.write('prediction answers:\n')
             for pred in v:
+                if 'label' in pred:
+                    buf.write('\t\tlabel is %s\n'%(pred['label']))
                 buf.write('\t\tpassage is %s\n\n'%(pred['passage'][0:500]))
                 buf.write('\t\textract (score : %.3f):\n%s\n'%(pred['span_score'],pred['span']))
                 buf.write('\t\t##'*10)
@@ -138,7 +140,9 @@ def evaluate_dureader_ranker(paths,ranker,batch_size=64,print_detail=True):
         for k,v in sorted_results.items():
             print('question:')
             print(k)
+            print('document number [%d] answer doc [%d]'%(len(v),v[0]['answer_docs'][0]))
             for x in v[0:10]:
+                print('\t\t label is [%d] doc_id is [%d]'%(x['label'],x['doc_id']))
                 print('\t\t'+x['passage'][0:100])
                 print('\t\t %.3f'%(x['rank_score']))
                 print('# #'*10)
@@ -227,6 +231,6 @@ if __name__ == '__main__':
     #show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
 
 
-    evaluate_dureader_ranker('./data/demo/devset/search.dev.json','pointwise/answer_doc')
+    evaluate_dureader_ranker('./data/demo/devset/search.dev.2.json','pointwise/answer_doc')
 
 

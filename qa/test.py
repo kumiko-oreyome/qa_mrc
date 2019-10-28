@@ -76,6 +76,16 @@ def test_bleu_rouge():
     bleu_rouge = compute_bleu_rouge({'aaa':['你好嗎'],'bbb':['澳斑馬']}, {'aaa':['你好嗎真的好嗎','不好啦'],'bbb':['澳洲','斑馬']})
     print(bleu_rouge)
 
+
+def test_precision_recall():
+    from qa.eval import precision,recall,accuracy
+    rank_result = {'question1':[{'rank_score':0.86,'label':1},{'rank_score':0.22,'label':0},{'rank_score':0.92,'label':0}],\
+                   'question2':[{'rank_score':0.4,'label':0},{'rank_score':0.5,'label':1},{'rank_score':0.1,'label':0},{'rank_score':0.2,'label':0}]}
+    assert recall(rank_result,1) == precision(rank_result,1)
+    assert recall(rank_result,1) ==0.5
+    assert accuracy(rank_result) == (2/3+4/4)/2
+
 test_extract_answer_dp()
 test_extract_topk_answer_dp()
 test_mrc_baseline()
+test_precision_recall()
