@@ -110,7 +110,9 @@ class DureaderLoader():
     def _para_selection(self,raw_sample):
         drex = DureaderRawExample(raw_sample)
         sample_list = drex.flatten(self.sample_fields,self.doc_fields )
-
+        if len(sample_list) == 0:
+            print(raw_sample['question'])
+            return []	
         if self.paragraph_selector is None:
             return sample_list
         if self.paragraph_selector in ['answer_doc','answer_docs']:

@@ -3,11 +3,13 @@ from rank.util import group_tuples
 from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
-from qa.judger import MaxAllJudger,MultiplyJudger
+from qa.judger import MaxAllJudger,MultiplyJudger,TopKJudger
+from qa.para_select import ParagraphSelectorFactory
 from common.util import  group_dict_list,RecordGrouper,evaluate_mrc_bidaf
 from dataloader.dureader import DureaderLoader,BertRCDataset,BertRankDataset
 from dataloader import chiuteacher,demo_files
 from io import StringIO
+import os
 
 
 class QARankedListFormater():
@@ -120,6 +122,8 @@ def evaluate_chiu_rank(ranker_exp_name):
 
 
 
+
+
 def evaluate_dureader_ranker(paths,ranker,batch_size=64,print_detail=True):
     if type(ranker)==str:
         ranker = RankerFactory.from_exp_name(ranker)
@@ -189,8 +193,46 @@ def show_prediction_for_dureader(paths,outpath,reader_exp_name,para_selection_me
         f.write('Content:\n\n')
         f.write(formated_result)
 
-def show_mrc_prediction_for_collected_qa_dataset(test_path,reader_name):
-    pass
+def show_mrc_prediction_for_collected_qa_dataset(paths,outpath,reader_name,para_selection_method,decoder_dict=None):
+    print('show_prediction collected_qa_dataset')
+    selector = ParagraphSelectorFactory.create_selector(para_selection_method)
+    loader = DureaderLoader(paths,None,sample_fields=['question','answers','qid'],doc_fields=['title'])
+    sample_list = []
+    rank_results = {} 
+    for qid,v in RecordGrouper(loader.sample_list).group('qid').items():
+        ranked_list = selector.evaluate_scores(v)
+        rank_results[qid] = RecordGrouper(ranked_list).group_sort('qid','rank_score',10)[qid]
+        sample_list.extend(selector.select_top_k_each_doc(ranked_list))
+    rank_file_path = '%s/%s.rank.txt'%(os.path.dirname(outpath),os.path.splitext(os.path.basename(outpath))[0])
+    with open(rank_file_path,'w',encoding='utf-8') as f:
+        for k,v in rank_results.items():
+            print('question:',file=f)
+            print(v[0]['question'],file=f)
+            for x in v[0:10]:
+                print('\t\t answer_doc[%d] : %s'%(x["doc_id"],x["title"]),file=f)
+                print('\t\t'+x['passage'],file=f)
+                print('\t\t %.3f'%(x['rank_score']),file=f)
+                print('# #'*10,file=f)
+                print('\n',file=f)   
+    print('reading...')
+    reader = ReaderFactory.from_exp_name(reader_name,decoder_dict=decoder_dict)
+    _preds = reader.evaluate_on_records(sample_list,batch_size=128)
+    _preds = group_dict_list(_preds,'qid')
+    pred_answers  = TopKJudger(k=2).judge(_preds)
+    pred_answer_list = RecordGrouper.from_group_dict('qid',pred_answers).records
+    print('result len %d'%(len(pred_answer_list)))
+    print('bidaf evaluation')
+    ranked_list_formatter = QARankedListFormater(pred_answer_list)
+    formated_result = ranked_list_formatter.format_result()
+    with open(outpath,'w',encoding='utf-8') as f:
+        #f.write('experiment settings\n')
+        #f.write('reader_exp_name : %s\n'%(reader_exp_name))
+        #f.write('para_selection_method : %s\n'%(str(para_selection_method)))
+        #f.write('decoder : %s\n'%(str(decoder_dict)))
+        #f.write('##'*20)
+        #f.write('Content:\n\n')
+        f.write(formated_result)
+
 
 
 def show_prediction_for_demo_examples(reader_name,decoder_dict,test_path='./data/examples.txt',out_path='demo_mrc.txt'):
@@ -226,11 +268,12 @@ if __name__ == '__main__':
 
 
     #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
-    #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker_name':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
     #show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':1}},out_path='bert_default_k=1.txt')
     #show_prediction_for_demo_examples('reader/bert_default',decoder_dict={'class':'default','kwargs':{'k':2}},out_path='bert_default_k=2.txt')
 
 
-    evaluate_dureader_ranker('./data/demo/devset/search.dev.2.json','pointwise/answer_doc')
-
-
+    #evaluate_dureader_ranker('./data/demo/devset/search.dev.2.json','pointwise/answer_doc')
+    #show_mrc_prediction_for_collected_qa_dataset('./data/debug.paragraphs.jsonl','debug_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    #show_mrc_prediction_for_collected_qa_dataset('./data/chiu_question.paragraphs.jsonl','chiu_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    show_mrc_prediction_for_collected_qa_dataset('./data/chiu_common_health.paragraphs.jsonl','./chiu_common_health_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':2}},decoder_dict={'class':'default','kwargs':{'k':1}})

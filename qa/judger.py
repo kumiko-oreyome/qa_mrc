@@ -13,6 +13,18 @@ class MaxAllJudger():
         return ret
 
 
+class TopKJudger():
+    def __init__(self,k=1):
+        self.k = k
+    def judge(self,documents):
+        ret = {}
+        for q,v in documents.items():
+            l= sorted(v,key=lambda x: -1*x['span_score'])
+            ret[q] = l[:self.k]
+        return ret
+
+
+
 class MultiplyJudger():
     def __init__(self):
         pass
