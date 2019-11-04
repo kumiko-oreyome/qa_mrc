@@ -127,8 +127,14 @@ class BertPointwiseRanker():
 
     def predict_score_one_batch(self,batch):
         match_scores = self.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask)
-        match_scores  = torch.nn.Softmax()(match_scores) # N,2
-        match_scores  =  match_scores[:,1] #  N  ,get positve socre
+        match_scores  = torch.nn.Sigmoid()(match_scores) # N,2
+        try:
+            assert torch.any(match_scores>0)
+        except:
+            import pdb
+            pdb.set_trace()
+            print(batch)
+        match_scores  =  match_scores[:,1]+0.0000000001 #  N  ,get positve socre
         return match_scores
 
 
