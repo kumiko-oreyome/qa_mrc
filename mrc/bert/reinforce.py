@@ -178,6 +178,10 @@ if __name__ == '__main__':
     DEV_PATH = "./data/devset/search.dev.json"
     #TRAIN_PATH = "./data/demo/devset/search.dev.json"
     #DEV_PATH = "./data/demo/devset/search.dev.json"
+
+    #TRAIN_PATH = "./data/trainset/search.train.1000.json"
+    #DEV_PATH = "./data/demo/devset/search.dev.json"
+
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
     EPOCH = 10
@@ -225,7 +229,7 @@ if __name__ == '__main__':
             #neg_sample_records = negative_sampleing(ranker_results,k=1)
             results_with_poicy_scores = transform_policy_score(neg_sample_records)
             policy = PolicySampleRanker(results_with_poicy_scores)
-            sampled_records = policy.sample_per_question(2)
+            sampled_records = policy.sample_per_question(1)
             #print('sample recoreds')
             #for v in sampled_records:
             #    print('question %s'%(v['question']))
@@ -293,7 +297,7 @@ if __name__ == '__main__':
                     reader_optimizer.zero_grad()
                     reader_loss.add_record(loss.item()) 
                     lr_scheduler.step()
-        print('EPOCH: %d'%(epcoch))
+        print('END OF EPOCH: %d'%(epcoch))
         reader_loss.print('reader avg loss:')
         ranker_loss.print('ranker avg loss:')
         reward_tracer.print('reward avg :')
