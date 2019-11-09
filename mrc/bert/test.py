@@ -1,5 +1,5 @@
 from rank.datautil import test_1,test_2,test_group_tuples,test_evaluate_on_file
-from .reinforce import ReinforceBatchIter,negative_sampleing
+from .reinforce import ReinforceBatchIter,negative_sampleing,PolicySampleRanker
 #test_3()
 
 #test_evaluate_on_file()
@@ -63,10 +63,23 @@ def test_reinforce_negatvie_sampling():
         {'doc_id':0,'answer_docs':[0],'question_id':5757,'text':"text21"}]
     print(negative_sampleing(records,k))
 
+def test_policy_sampler():
+    k = 2
+    records = [{'doc_id':0,'answer_docs':[1],'question_id':8787,'text':"text1",'policy_score':1},\
+             {'doc_id':1,'answer_docs':[1],'question_id':8787,'text':"text2",'policy_score':2},\
+             {'doc_id':2,'answer_docs':[1],'question_id':8787,'text':"text3",'policy_score':3},\
+             {'doc_id':3,'answer_docs':[1],'question_id':8787,'text':"text4",'policy_score':6},\
+             {'doc_id':4,'answer_docs':[1],'question_id':8787,'text':"text5",'policy_score':-1},\
+            {'doc_id':5,'answer_docs':[1],'question_id':8787,'text':"text6",'policy_score':5},\
+           {'doc_id':0,'answer_docs':[0],'question_id':5757,'text':"text21",'policy_score':-100}]
+    sampler = PolicySampleRanker(records)
+    r = sampler.sample_per_question(k)
+    print(len(r))
+    print(r)
 
 
-test_reinforce_negatvie_sampling()
-
+test_policy_sampler()
+#test_reinforce_negatvie_sampling()
 #def test_bert_tokenize():
 #    from bert.tokenization import  BertTokenizer
 #    tokenizer =  BertTokenizer('./pretrained/chinese_wwm_ext_pytorch/vocab.txt', do_lower_case=True)

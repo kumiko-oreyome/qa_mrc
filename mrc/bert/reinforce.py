@@ -3,7 +3,7 @@ from .util import preprocessing_charspan
 from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
-from qa.judger import MaxAllJudger,MultiplyJudger
+from qa.judger import MaxAllJudger
 from qa.para_select import BertRankerSelector
 from common.dureader_eval  import  compute_bleu_rouge,normalize
 from common.experiment import Experiment
@@ -143,17 +143,30 @@ class PolicySampleRanker():
     def __init__(self,records,score_field='policy_score'):
         self.records = records
         self.score_field = score_field
-    def sample_per_question(self,k=1,sample_field='question_id'):
+    def sample_per_question(self,k=1,sample_field='question_id',keep_ground_truth=True):
         df = pd.DataFrame.from_records(self.records)
-        aaa = df.groupby(sample_field).apply(lambda x:self._sample_lambda(x,k).to_dict('records')).tolist()
+        aaa = df.groupby(sample_field).apply(lambda x:self._sample_lambda(x,k)).tolist()
         l =  list(itertools.chain(*aaa))
         return l
 
-    def _sample_lambda(self,group,k):
-        candidates = group.sort_values(by=self.score_field)[0:5]
-        probs = candidates[self.score_field].tolist()
-        indexs = np.random.choice(len(probs),size=k,replace=True, p=probs)
-        return candidates.iloc[indexs]
+    def _sample_lambda(self,group,k,keep_ground_truth=True):
+        if not keep_ground_truth:
+            candidates = group.sort_values(by=self.score_field,ascendind=False)[0:5]
+            probs = candidates[self.score_field].tolist()
+            indexs = np.random.choice(len(probs),size=k,replace=True, p=probs)
+            return candidates.iloc[indexs].to_dict('records')
+        else:
+            ret = []
+            records = group.to_dict('records')
+            pos_sample = [sample for sample in records if sample["doc_id"] == sample['answer_docs'][0]]
+            assert len(pos_sample)==1
+            pos_sample = pos_sample[0]
+            neg_samples = [sample for sample in records if sample["doc_id"] != sample['answer_docs'][0]]
+            neg_samples = sorted(neg_samples,key=lambda x:x[self.score_field],reverse=True)[0:3]
+            neg_samples = np.random.choice(neg_samples,size=min(k,len(neg_samples)),replace=False)
+            ret.append(pos_sample)
+            ret.extend(neg_samples)
+            return ret
 
 
 if __name__ == '__main__':
