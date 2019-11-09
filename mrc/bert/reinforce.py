@@ -116,7 +116,7 @@ def reward_function_word_overlap(prediction,ground_truth):
 
 def policy_gradient(rewards,probs):
     assert torch.all(probs>0)
-    loss =  rewards*torch.log(probs+0.00000001)
+    loss =  rewards*torch.log(probs)
     return torch.mean(loss)
 
 
@@ -175,12 +175,12 @@ if __name__ == '__main__':
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
     TRAIN_PATH = ["./data/trainset/search.train.json"]
-    DEV_PATH = "./data/devset/search.dev.json"
+    DEV_PATH = TRAIN_PATH
     #TRAIN_PATH = "./data/demo/devset/search.dev.json"
     #DEV_PATH = "./data/demo/devset/search.dev.json"
 
     #TRAIN_PATH = "./data/trainset/search.train.1000.json"
-    #DEV_PATH = "./data/demo/devset/search.dev.json"
+    #DEV_PATH = TRAIN_PATH
 
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
@@ -240,12 +240,12 @@ if __name__ == '__main__':
             # calculate rewards          
             for pred in reader_predictions:
                  pred_tokens = tokenizer.tokenize(pred['span'])
-                 #reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
+                 reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
                  
                  if pred['answer_docs'][0] == pred['doc_id']:
-                     reward =  1+pred['policy_score']  
+                     reward =  1+pred['policy_score']+reward
                  else:
-                     reward = -1* pred['policy_score']-1
+                     reward = -1* pred['policy_score']-1+reward
                  pred['reward'] = reward
                  pred['p_mul'] = pred['policy_score']/pred['rank_score']
                  #pred['reward'] = reward-0.5 i

@@ -48,10 +48,13 @@ def sort_single_prediction_by_score(scores,payloads):
 
 def predict_on_batch(model,dataloader,sigmoid=False):
     with torch.no_grad():
-        _preds = []   
+        _preds = []
+        example_num = 0
+        residual_num = 0
         for i,batch_X in enumerate(dataloader):
-            if i % 20 == 0:
-                print('predict on batch %d ....'%(i))
+            if (residual_num) > 5000:
+                residual_num-=5000
+                print('ranker predict on  %d th example ....'%(example_num))
             match_scores = model(batch_X[0],batch_X[1],batch_X[2])
             if sigmoid:
                 match_scores  = torch.nn.Sigmoid()(match_scores)
@@ -62,6 +65,8 @@ def predict_on_batch(model,dataloader,sigmoid=False):
                 _preds.extend([arr for arr in match_scores.cpu().numpy().tolist()])
             else:
                 _preds.extend([arr for arr in match_scores.numpy().tolist()])
+            example_num+=len(batch_X)
+            residual_num = len(batch_X)
     return _preds
 
 
