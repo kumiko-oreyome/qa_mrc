@@ -23,10 +23,10 @@ def preprocessing_charspan(sample):
 
 
 
-def  load_bert_rc_model(config_path,wieght_path,device=None):
+def  load_bert_rc_model(config_path,weight_path,device=None):
     config = BertConfig(config_path)
     model = BertForQuestionAnswering(config)
-    model.load_state_dict(torch.load(wieght_path,map_location=device))
+    model.load_state_dict(torch.load(weight_path,map_location=device))
     if device is not None:
         return model.to(device)
     return model.cpu()

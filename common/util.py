@@ -71,7 +71,7 @@ class RecordGrouper():
         for k,l in structured.items():
             for v in l:
                 v.update({group_key:k})
-            records.append(v)
+                records.append(v)
         return cls(records)
     
     def group(self,field_name):

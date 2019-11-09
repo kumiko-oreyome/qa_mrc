@@ -151,6 +151,9 @@ class RecordDataset(object):
 
 
 
+
+
+
 class BertRCDataset( RecordDataset):  
     bert_field = Field(batch_first=True, sequential=True, tokenize=lambda ids:[int(i) for i in ids],use_vocab=False, pad_token=0) 
     def __init__(self,sample_list,max_query_length,max_seq_length,train_flag=False,device=None):

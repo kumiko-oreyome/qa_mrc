@@ -3,7 +3,7 @@ from rank.util import group_tuples
 from rank.datautil import load_examples_from_scratch
 from qa.ranker import RankerFactory
 from qa.reader import ReaderFactory
-from qa.judger import MaxAllJudger,MultiplyJudger,TopKJudger
+from qa.judger import MaxAllJudger,LambdaJudger,TopKJudger
 from qa.para_select import ParagraphSelectorFactory
 from common.util import  group_dict_list,RecordGrouper,evaluate_mrc_bidaf
 from dataloader.dureader import DureaderLoader,BertRCDataset,BertRankDataset
@@ -15,7 +15,7 @@ import os
 class QARankedListFormater():
     def __init__(self,ranked_dict_list):
         self.results = ranked_dict_list
-    def format_result(self,gold_info=False):
+    def format_result(self,gold_info=False,extra_fields=[]):
         grouper_dict = RecordGrouper(self.results).group('question')
         buf = StringIO()
         for q,v in grouper_dict.items():
@@ -27,11 +27,12 @@ class QARankedListFormater():
             #    buf.write('answer is \n')
             buf.write('prediction answers:\n')
             for pred in v:
-                if 'label' in pred:
-                    buf.write('\t\tlabel is %s\n'%(pred['label']))
+                for field in extra_fields:
+                    if field in pred:
+                        buf.write('\t\t%s is %s\n'%(field,pred[field]))
                 buf.write('\t\tpassage is %s\n\n'%(pred['passage'][0:500]))
                 buf.write('\t\textract (score : %.3f):\n%s\n'%(pred['span_score'],pred['span']))
-                buf.write('\t\t##'*10)
+                buf.write('\t\t##'*10+'\n')
         return buf.getvalue()
                 
         
@@ -202,7 +203,9 @@ def show_mrc_prediction_for_collected_qa_dataset(paths,outpath,reader_name,para_
     for qid,v in RecordGrouper(loader.sample_list).group('qid').items():
         ranked_list = selector.evaluate_scores(v)
         rank_results[qid] = RecordGrouper(ranked_list).group_sort('qid','rank_score',10)[qid]
-        sample_list.extend(selector.select_top_k_each_doc(ranked_list))
+        #aaa = selector.select_top_k_each_doc(ranked_list)
+        print('length:%d'%(len(rank_results[qid])))
+        sample_list.extend(rank_results[qid])
     rank_file_path = '%s/%s.rank.txt'%(os.path.dirname(outpath),os.path.splitext(os.path.basename(outpath))[0])
     with open(rank_file_path,'w',encoding='utf-8') as f:
         for k,v in rank_results.items():
@@ -218,12 +221,18 @@ def show_mrc_prediction_for_collected_qa_dataset(paths,outpath,reader_name,para_
     reader = ReaderFactory.from_exp_name(reader_name,decoder_dict=decoder_dict)
     _preds = reader.evaluate_on_records(sample_list,batch_size=128)
     _preds = group_dict_list(_preds,'qid')
-    pred_answers  = TopKJudger(k=2).judge(_preds)
+    judger = LambdaJudger(2,lambda x: x['rank_score']+x['span_score'])
+    #judger = TopKJudger(k=2)
+    #pred_answers  = TopKJudger(k=2).judge(_preds)
+    pred_answers  = judger.judge(_preds)
+    for pred in _preds:
+        pred['title_score'] = 0
+        
     pred_answer_list = RecordGrouper.from_group_dict('qid',pred_answers).records
     print('result len %d'%(len(pred_answer_list)))
     print('bidaf evaluation')
     ranked_list_formatter = QARankedListFormater(pred_answer_list)
-    formated_result = ranked_list_formatter.format_result()
+    formated_result = ranked_list_formatter.format_result(extra_fields=['label','title'])
     with open(outpath,'w',encoding='utf-8') as f:
         #f.write('experiment settings\n')
         #f.write('reader_exp_name : %s\n'%(reader_exp_name))
@@ -276,4 +285,5 @@ if __name__ == '__main__':
     #evaluate_dureader_ranker('./data/demo/devset/search.dev.2.json','pointwise/answer_doc')
     #show_mrc_prediction_for_collected_qa_dataset('./data/debug.paragraphs.jsonl','debug_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
     #show_mrc_prediction_for_collected_qa_dataset('./data/chiu_question.paragraphs.jsonl','chiu_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
-    show_mrc_prediction_for_collected_qa_dataset('./data/chiu_common_health.paragraphs.jsonl','./chiu_common_health_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':2}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    show_mrc_prediction_for_collected_qa_dataset('./data/chiu_common_health.paragraphs.ptag.jsonl','./chiu_common_health_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':2}},decoder_dict={'class':'default','kwargs':{'k':2}})
+    #show_mrc_prediction_for_collected_qa_dataset('./tmp.txt','./chiu_common_health_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':2}},decoder_dict={'class':'default','kwargs':{'k':1}})
