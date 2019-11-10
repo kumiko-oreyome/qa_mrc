@@ -104,7 +104,7 @@ def text_overlap_recall(text_words,answer_words):
 
 def group_normalize(data_tensor,group_tensor):
     idx_unique = group_tensor.unique(sorted=True)
-    sum_group = torch.zeros(len(idx_unique)).scatter_add(0, group_tensor ,data_tensor)
+    sum_group = torch.zeros(len(idx_unique),device=data_tensor.device).scatter_add(0, group_tensor ,data_tensor)
     sum_t = torch.gather(sum_group,0,group_tensor)
     return data_tensor/sum_t
 
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
     #TRAIN_PATH = ["./data/devset/search.dev.json"]
-    TRAIN_PATH = "./data/demo/devset/search.dev.json"
+    TRAIN_PATH = "./data/demo/devset/search.dev.10.json"
     #TRAIN_PATH = "./data/trainset/search.train.1000.json"
     DEV_PATH = TRAIN_PATH
 
@@ -213,7 +213,7 @@ if __name__ == '__main__':
                 print('reinfroce loop evaluate on %d batch'%(i))
                 ranker_loss.print()
             # rl train
-            ranker_results = ranker.evaluate_on_records(rl_samples,batch_size=BATCH_SIZE)
+            ranker_results = ranker.evaluate_on_records(rl_samples,batch_size=64)
             neg_sample_records = negative_sampleing(ranker_results,k=5)
             results_with_poicy_scores = transform_policy_score(neg_sample_records)
             policy = PolicySampler(results_with_poicy_scores)
@@ -221,6 +221,9 @@ if __name__ == '__main__':
             # answer extraction 
             reader_predictions = reader.evaluate_on_records(sampled_records,batch_size=BATCH_SIZE)
             # calculate rewards          
+
+            group_table = {}
+
             for ri,pred in enumerate(reader_predictions):
                  pred_tokens = tokenizer.tokenize(pred['span'])
                  reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
@@ -231,11 +234,36 @@ if __name__ == '__main__':
                      reward = -1* pred['policy_score']-1+reward
                  pred['reward'] = reward
                  reward_tracer.add_record(reward)
+
+                 if pred['group_idx'] not in  group_table:
+                    group_table[pred['group_idx']] = []
+                 group_table[pred['group_idx']].append(pred)
+
+            batch_buffer = [[]]
+            batch_buffer_cur_idx = 0
+            batch_group_idx = 0
+            for items in group_table.values():
+                n = len(items)
+                #print('[n=%d]'%(n))
+                assert  n <=BATCH_SIZE
+                if n+len( batch_buffer[batch_buffer_cur_idx])> BATCH_SIZE:
+                    batch_buffer.append([])
+                    batch_buffer_cur_idx+= 1
+                    batch_group_idx = 0
+                for x in items:
+                    x['batch_group_idx'] = batch_group_idx
+                batch_buffer[batch_buffer_cur_idx].extend(items)
+                batch_group_idx+=1
+                
+                    
+
             # policy_gradient
-            for  ranker_batch in ranker.get_batchiter(reader_predictions,batch_size=BATCH_SIZE):
+            for  batch_in_buffer in batch_buffer:
+                #print('[%d]'%len(batch_in_buffer))
+                ranker_batch = next(iter(ranker.get_batchiter(batch_in_buffer,batch_size=BATCH_SIZE)))
                 ##prediction on ranker (with grad)
                 rewards = torch.tensor(ranker_batch.reward,device=ranker.device,dtype=torch.float)
-                group_t = torch.tensor(ranker_batch.group_idx).to(ranker.device)
+                group_t = torch.tensor(ranker_batch.batch_group_idx).to(ranker.device)
                 ranker_probs_1 = ranker.predict_score_one_batch(ranker_batch)
                 try:
                     assert torch.all(ranker_probs_1>0)
