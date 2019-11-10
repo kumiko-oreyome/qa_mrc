@@ -71,16 +71,17 @@ def transform_policy_score(ranker_results,field_name='rank_score'):
         ret.extend(records)
     return ret
 
+
+
 def negative_sampleing(records,k):
-    if k is None:
-        return records
     grouper = RecordGrouper(records)
     ret = []
     for _,v in grouper.group('question_id').items():
         pos_sample = [sample for sample in v if sample["doc_id"] == sample['answer_docs'][0]]
         assert len(pos_sample)==1
         pos_sample = pos_sample[0]
-        neg_samples = [sample for sample in v if sample["doc_id"] != sample['answer_docs'][0]]
+        neg_samples = [sample for sample in records if sample["doc_id"] != sample['answer_docs'][0]]
+        neg_samples = sorted(neg_samples,key=lambda x:x['rank_score'],reverse=True)[0:3]
         neg_samples = np.random.choice(neg_samples,size=min(k,len(neg_samples)),replace=False)
         ret.append(pos_sample)
         ret.extend(neg_samples)
@@ -101,6 +102,11 @@ def text_overlap_recall(text_words,answer_words):
     return len(m)/len(s2)
 
 
+def group_normalize(data_tensor,group_tensor):
+    idx_unique = group_tensor.unique(sorted=True)
+    sum_group = torch.zeros(len(idx_unique)).scatter_add(0, group_tensor ,data_tensor)
+    sum_t = torch.gather(sum_group,0,group_tensor)
+    return data_tensor/sum_t
 
 # rc reward
 def reward_function_word_overlap(prediction,ground_truth):
@@ -128,6 +134,8 @@ class ReinforceBatchIter():
         ret = []
         for i,(group_name, df_group) in enumerate(df.groupby(sample_field)):
             l = df_group.to_dict('records')
+            for x in l:
+                x['group_idx'] = i
             ret.extend(l)
             if   (i+1)%batch_size==0:
                 yield ret
@@ -136,37 +144,21 @@ class ReinforceBatchIter():
             yield ret
 
 
-
-
-
-class PolicySampleRanker():
+class PolicySampler():
     def __init__(self,records,score_field='policy_score'):
         self.records = records
         self.score_field = score_field
-    def sample_per_question(self,k=1,sample_field='question_id',keep_ground_truth=True):
+    def sample_per_question(self,k=1,sample_field='question_id'):
         df = pd.DataFrame.from_records(self.records)
         aaa = df.groupby(sample_field).apply(lambda x:self._sample_lambda(x,k)).tolist()
         l =  list(itertools.chain(*aaa))
         return l
 
-    def _sample_lambda(self,group,k,keep_ground_truth=True):
-        if not keep_ground_truth:
-            candidates = group.sort_values(by=self.score_field,ascendind=False)[0:5]
-            probs = candidates[self.score_field].tolist()
-            indexs = np.random.choice(len(probs),size=k,replace=True, p=probs)
-            return candidates.iloc[indexs].to_dict('records')
-        else:
-            ret = []
-            records = group.to_dict('records')
-            pos_sample = [sample for sample in records if sample["doc_id"] == sample['answer_docs'][0]]
-            assert len(pos_sample)==1
-            pos_sample = pos_sample[0]
-            neg_samples = [sample for sample in records if sample["doc_id"] != sample['answer_docs'][0]]
-            neg_samples = sorted(neg_samples,key=lambda x:x[self.score_field],reverse=True)[0:3]
-            neg_samples = np.random.choice(neg_samples,size=min(k,len(neg_samples)),replace=False)
-            ret.append(pos_sample)
-            ret.extend(neg_samples)
-            return ret
+    def _sample_lambda(self,group,k):
+        probs = group[self.score_field].tolist()
+        indexs = np.random.choice(len(probs),size=k,replace=True, p=probs)
+        return group.iloc[indexs].to_dict('records')
+      
 
 
 if __name__ == '__main__':
@@ -174,17 +166,14 @@ if __name__ == '__main__':
     from qa.eval import evaluate_dureader_ranker
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
-    TRAIN_PATH = ["./data/trainset/search.train.json"]
-    DEV_PATH = TRAIN_PATH
-    #TRAIN_PATH = "./data/demo/devset/search.dev.json"
-    #DEV_PATH = "./data/demo/devset/search.dev.json"
-
+    #TRAIN_PATH = ["./data/devset/search.dev.json"]
+    TRAIN_PATH = "./data/demo/devset/search.dev.json"
     #TRAIN_PATH = "./data/trainset/search.train.1000.json"
-    #DEV_PATH = TRAIN_PATH
+    DEV_PATH = TRAIN_PATH
 
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
-    EPOCH = 10
+    EPOCH = 50
     print_detail = False
     TRAIN_READER= False
 
@@ -210,35 +199,29 @@ if __name__ == '__main__':
     BATCH_SIZE = 16
     highest_bleu = -1
     print('ranker performance before traning')
-    ranker.model = ranker.model.eval()
-    evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=print_detail)
+    #ranker.model = ranker.model.eval()
+    #evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=print_detail)
 
 
     for epcoch in range(EPOCH):
         ranker.model = ranker.model.eval()
         print('start of epoch %d'%(epcoch))
-        reader_loss,ranker_loss,reward_tracer = MetricTracer(),MetricTracer(),MetricTracer()
+        reader_loss,ranker_loss,reward_tracer,ranker_prob_tracer = MetricTracer(),MetricTracer(),MetricTracer(),MetricTracer()
         print('start training loop')
         for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(BATCH_SIZE*5)):
             if (i+1) % 100 == 0 :
                 print('reinfroce loop evaluate on %d batch'%(i))
-                reader_loss.print()
+                ranker_loss.print()
             # rl train
             ranker_results = ranker.evaluate_on_records(rl_samples,batch_size=BATCH_SIZE)
-            neg_sample_records = ranker_results
-            #neg_sample_records = negative_sampleing(ranker_results,k=1)
+            neg_sample_records = negative_sampleing(ranker_results,k=5)
             results_with_poicy_scores = transform_policy_score(neg_sample_records)
-            policy = PolicySampleRanker(results_with_poicy_scores)
-            sampled_records = policy.sample_per_question(1)
-            #print('sample recoreds')
-            #for v in sampled_records:
-            #    print('question %s'%(v['question']))
-            #    print('label %d'%(1 if v['doc_id']==v['answer_docs'][0] else 0))
-            #    print('passage %s'%(v['passage'][0:100]))
+            policy = PolicySampler(results_with_poicy_scores)
+            sampled_records = policy.sample_per_question(3)
             # answer extraction 
             reader_predictions = reader.evaluate_on_records(sampled_records,batch_size=BATCH_SIZE)
             # calculate rewards          
-            for pred in reader_predictions:
+            for ri,pred in enumerate(reader_predictions):
                  pred_tokens = tokenizer.tokenize(pred['span'])
                  reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
                  
@@ -247,21 +230,12 @@ if __name__ == '__main__':
                  else:
                      reward = -1* pred['policy_score']-1+reward
                  pred['reward'] = reward
-                 pred['p_mul'] = pred['policy_score']/pred['rank_score']
-                 #pred['reward'] = reward-0.5 i
-                 #pred['reward'] = reward
-                 #if(pred['answer_score']-pred['policy_score'])<0:
-                     #pred['reward']+= 3*(pred['answer_score']-pred['policy_score'])
-                 # add reward by postive answer score maybe can learn faster
-                 #pred['reward']+= 2*(pred['answer_score']-pred['policy_score'])
-                 #pred['reward'] = pred['reward']*2
                  reward_tracer.add_record(reward)
-                 #print('reward %.3f'%(pred['reward']))
             # policy_gradient
             for  ranker_batch in ranker.get_batchiter(reader_predictions,batch_size=BATCH_SIZE):
                 ##prediction on ranker (with grad)
                 rewards = torch.tensor(ranker_batch.reward,device=ranker.device,dtype=torch.float)
-                pmul_t = torch.tensor(ranker_batch.p_mul).to(ranker.device)
+                group_t = torch.tensor(ranker_batch.group_idx).to(ranker.device)
                 ranker_probs_1 = ranker.predict_score_one_batch(ranker_batch)
                 try:
                     assert torch.all(ranker_probs_1>0)
@@ -269,8 +243,9 @@ if __name__ == '__main__':
                     import pdb;
                     pdb.set_trace()
                     print(ranker_probs_1)
-                ranker_probs = ranker_probs_1*pmul_t
-                assert torch.all(pmul_t>0)
+                ranker_prob_tracer.add_record(ranker_probs_1.detach().mean().item())
+                ranker_probs = group_normalize(ranker_probs_1,group_t)
+                #assert torch.all(ranker_probs >0) and  torch.all(ranker_probs <=1)
                 #import numpy as np
                 #try:
                 #    assert np.array_equal(ranker_batch.policy_score , ranker_probs.detach().cpu().numpy())
@@ -296,30 +271,31 @@ if __name__ == '__main__':
                     reader_optimizer.step()
                     reader_optimizer.zero_grad()
                     reader_loss.add_record(loss.item()) 
-                    lr_scheduler.step()
+                    #lr_scheduler.step()
         print('END OF EPOCH: %d'%(epcoch))
-        reader_loss.print('reader avg loss:')
+        #reader_loss.print('reader avg loss:')
         ranker_loss.print('ranker avg loss:')
         reward_tracer.print('reward avg :')
+        ranker_prob_tracer.print('prob avg:')
         print('metrics')
         #here must let ranker to select paragraph to evaluate the effect of policy gradient
         reader.model = reader.model.eval()
         ranker.model = ranker.model.eval()
-        para_selector = BertRankerSelector(ranker)
-        loader = DureaderLoader(DEV_PATH,para_selector,sample_fields=['question','answers','question_id','question_type'])
-        _preds = reader.evaluate_on_records(loader.sample_list,batch_size=BATCH_SIZE)
-        _preds = group_dict_list(_preds,'question_id')
-        pred_answers  = MaxAllJudger().judge(_preds)
-        evaluate_result = evaluate_mrc_bidaf(pred_answers)
+        #para_selector = BertRankerSelector(ranker)
+        #loader = DureaderLoader(DEV_PATH,para_selector,sample_fields=['question','answers','question_id','question_type'])
+        #_preds = reader.evaluate_on_records(loader.sample_list,batch_size=64)
+        #_preds = group_dict_list(_preds,'question_id')
+        #pred_answers  = MaxAllJudger().judge(_preds)
+        #evaluate_result = evaluate_mrc_bidaf(pred_answers)
         print('evaluate ranker')
-        evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=print_detail)
+        evaluate_dureader_ranker(DEV_PATH,ranker,64,print_detail=False)
         reader.model = reader.model.train()
         ranker.model = ranker.model.train()
-        if evaluate_result['Bleu-4'] >  highest_bleu:
-            print('%.3f %.3f'%(evaluate_result['Bleu-4'],highest_bleu))
-            highest_bleu = evaluate_result['Bleu-4']
-            model_dir = experiment.model_dir
-            print('save models with bleu %.3f to %s'%(highest_bleu,model_dir))
-            torch.save(ranker.model.state_dict(),'%s/ranker.bin'%(model_dir))
-            torch.save(reader.model.state_dict(),'%s/reader.bin'%(model_dir))
+        #if evaluate_result['Bleu-4'] >  highest_bleu:
+        #    print('%.3f %.3f'%(evaluate_result['Bleu-4'],highest_bleu))
+        #    highest_bleu = evaluate_result['Bleu-4']
+        #    model_dir = experiment.model_dir
+        #    print('save models with bleu %.3f to %s'%(highest_bleu,model_dir))
+        #    torch.save(ranker.model.state_dict(),'%s/ranker.bin'%(model_dir))
+        #    torch.save(reader.model.state_dict(),'%s/reader.bin'%(model_dir))
         print('- - '*20)
