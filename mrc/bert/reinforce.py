@@ -155,14 +155,15 @@ class PolicySampler():
         df = pd.DataFrame.from_records(self.records)
         aaa = df.groupby(sample_field).apply(lambda x:self._sample_lambda(x,k)).tolist()
         l =  list(itertools.chain(*aaa))
-        for r in l:
-            r['selected_cnt']+=1
         return l
 
     def _sample_lambda(self,group,k):
         probs = group[self.score_field].tolist()
         indexs = np.random.choice(len(probs),size=k,replace=True, p=probs)
-        return group.iloc[indexs].to_dict('records')
+        l = group.to_dict('records')
+        for i in indexs:
+            l[i]['selected_cnt']+=1
+        return l
       
 
 
@@ -224,7 +225,8 @@ if __name__ == '__main__':
             policy = PolicySampler(results_with_poicy_scores)
             sampled_records = policy.sample_per_question(1)
             # answer extraction 
-            reader_predictions = reader.evaluate_on_records(sampled_records,batch_size=BATCH_SIZE)
+            reader_input = [x for x in sampled_records if x['selected_cnt']>0]
+            reader_predictions = reader.evaluate_on_records(reader_input,batch_size=BATCH_SIZE)
             # calculate rewards          
 
 
@@ -236,12 +238,22 @@ if __name__ == '__main__':
                  else:
                      reward = -1
                  pred['reward'] = reward
+            #.... id not equals of dicts in reader_predictions and reader_input
 
 
-
+            reader_predictions_group_table = group_dict_list(reader_predictions,'group_idx')
             group_table = {}
+            #!!!! results_with_poicy_scores!=neg_sample_records
 
-            for k,v in RecordGrouper(ranker_results).group('group_idx').items():
+            for k,v in group_dict_list(sampled_records,'group_idx').items():
+                reader_predictions =  reader_predictions_group_table[k]
+                for p in reader_predictions:
+                    for x in v :
+                        if p['doc_id'] == x['doc_id']:
+                            x['reward'] = p['reward']
+                            assert x['selected_cnt']>0
+                print( [x['selected_cnt'] for x in v])
+                print([x['reward'] for x in v])
                 group_table[k] = v
 
             batch_buffer = [[]]
@@ -268,6 +280,7 @@ if __name__ == '__main__':
                 ##prediction on ranker (with grad)
                 rewards = torch.tensor(ranker_batch.reward,device=ranker.device,dtype=torch.float)
                 group_t = torch.tensor(ranker_batch.batch_group_idx).to(ranker.device)
+                selected_cnt_t = torch.tensor(ranker_batch.selected_cnt).to(ranker.device)
                 ranker_probs_1 = ranker.predict_score_one_batch(ranker_batch)
                 try:
                     assert torch.all(ranker_probs_1>0)
@@ -278,17 +291,20 @@ if __name__ == '__main__':
                 ranker_prob_tracer.add_record(ranker_probs.detach().mean().item())
                 assert torch.all(ranker_probs >0) and  torch.all(ranker_probs <=1)
 
-                rewards = rewards[ranker_batch.selected_cnt>0]
-                ranker_probs = ranker_probs[ranker_batch.selected_cnt>0]
+                rewards = rewards[selected_cnt_t >0]
+                ranker_probs = ranker_probs[selected_cnt_t >0]
 
 
 
                 #import numpy as np
                 try:
-                    assert np.isclose(ranker_batch.policy_score , ranker_probs.detach().cpu().numpy())
-                except :
-                    print(ranker_batch.policy_score)
-                    print(ranker_probs.detach().cpu().numpy())
+                    aaa = np.array(ranker_batch.policy_score)[selected_cnt_t.detach().cpu().numpy() >0]
+                    bbb =  ranker_probs.detach().cpu().numpy()
+                    assert np.allclose(aaa,bbb)
+                except AssertionError :
+                    print('prob not equal')
+                    print(aaa)
+                    print(bbb)
 
                 loss = -1*policy_gradient(rewards,ranker_probs)
                 loss.backward()
