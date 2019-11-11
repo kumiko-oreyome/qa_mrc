@@ -142,7 +142,7 @@ def evaluate_dureader_ranker(paths,ranker,batch_size=64,print_detail=True):
     print( len(rank_results))
     sorted_results = RecordGrouper(rank_results).group_sort('question','rank_score',50)
     if print_detail:
-        for k,v in sorted_results.items():
+        for k,v in list(sorted_results.items())[0:2]:
             print('question:')
             print(k)
             print('document number [%d] answer doc [%d]'%(len(v),v[0]['answer_docs'][0]))
