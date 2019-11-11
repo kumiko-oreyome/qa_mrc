@@ -214,7 +214,7 @@ if __name__ == '__main__':
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer,ranker_prob_tracer = MetricTracer(),MetricTracer(),MetricTracer(),MetricTracer()
         print('start training loop')
-        for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(500)):
+        for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(30)):
             if (i+1) % 100 == 0 :
                 print('reinfroce loop evaluate on %d batch'%(i))
                 ranker_loss.print()
@@ -251,9 +251,7 @@ if __name__ == '__main__':
                     for x in v :
                         if p['doc_id'] == x['doc_id']:
                             x['reward'] = p['reward']
-                            assert x['selected_cnt']>0
-                print( [x['selected_cnt'] for x in v])
-                print([x['reward'] for x in v])
+
                 group_table[k] = v
 
             batch_buffer = [[]]
@@ -261,7 +259,6 @@ if __name__ == '__main__':
             batch_group_idx = 0
             for items in group_table.values():
                 n = len(items)
-                #print('[n=%d]'%(n))
                 assert  n <=BATCH_SIZE
                 if n+len( batch_buffer[batch_buffer_cur_idx])> BATCH_SIZE:
                     batch_buffer.append([])
@@ -275,41 +272,35 @@ if __name__ == '__main__':
                 
             # policy_gradient
             for  batch_in_buffer in batch_buffer:
-                #print('[%d]'%len(batch_in_buffer))
                 ranker_batch = next(iter(ranker.get_batchiter(batch_in_buffer,batch_size=BATCH_SIZE)))
-                ##prediction on ranker (with grad)
                 rewards = torch.tensor(ranker_batch.reward,device=ranker.device,dtype=torch.float)
                 group_t = torch.tensor(ranker_batch.batch_group_idx).to(ranker.device)
                 selected_cnt_t = torch.tensor(ranker_batch.selected_cnt).to(ranker.device)
                 ranker_probs_1 = ranker.predict_score_one_batch(ranker_batch)
-                try:
-                    assert torch.all(ranker_probs_1>0)
-                except:
-                    import pdb;
-                    pdb.set_trace()
                 ranker_probs = group_normalize(ranker_probs_1,group_t)
-                ranker_prob_tracer.add_record(ranker_probs.detach().mean().item())
-                assert torch.all(ranker_probs >0) and  torch.all(ranker_probs <=1)
-
                 rewards = rewards[selected_cnt_t >0]
                 ranker_probs = ranker_probs[selected_cnt_t >0]
-
-
-
+                assert torch.all(ranker_probs >0) and  torch.all(ranker_probs <=1)
+                #print('rank scores')
+                #print(ranker_probs_1[selected_cnt_t.detach().cpu().numpy() >0])
+                #print(np.array(ranker_batch.rank_score)[selected_cnt_t.detach().cpu().numpy() >0])
+               
                 #import numpy as np
-                try:
-                    aaa = np.array(ranker_batch.policy_score)[selected_cnt_t.detach().cpu().numpy() >0]
-                    bbb =  ranker_probs.detach().cpu().numpy()
-                    assert np.allclose(aaa,bbb)
-                except AssertionError :
-                    print('prob not equal')
-                    print(aaa)
-                    print(bbb)
+                #try:
+                #    aaa = np.array(ranker_batch.policy_score)[selected_cnt_t.detach().cpu().numpy() >0]
+                #    bbb =  ranker_probs.detach().cpu().numpy()
+                #    assert np.allclose(aaa,bbb)
+                #except AssertionError :
+                #    print('prob not equal')
+                #    print(aaa)
+                #    print(bbb)
 
                 loss = -1*policy_gradient(rewards,ranker_probs)
                 loss.backward()
                 ranker_optimizer.step()
                 ranker_optimizer.zero_grad()
+
+                ranker_prob_tracer.add_record(ranker_probs.detach().mean().item())
                 ranker_loss.add_record(loss.item())
             #print('supevisely train reader')
             #supevisely train reader
