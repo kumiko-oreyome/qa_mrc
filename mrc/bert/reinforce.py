@@ -18,6 +18,7 @@ import jieba as jb
 from common.textutil import Tokenizer
 from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR
+import itertools
 
 ##ls
 # load data
@@ -70,6 +71,7 @@ def transform_policy_score(ranker_results,field_name='rank_score'):
             r['answer_score'] =  answer_score
         ret.extend(records)
     return ret
+
 
 
 
@@ -200,7 +202,7 @@ if __name__ == '__main__':
     reader = ReaderFactory.from_exp_name(experiment.config.reader_name,eval_flag=False)
     tokenizer =  Tokenizer()
     reader_optimizer =  SGD(reader.model.parameters(), lr=0.0001, momentum=0.9)
-    ranker_optimizer = SGD(ranker.model.parameters(), lr=0.0002, momentum=0.9)
+    ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00005, momentum=0.9)
     lr_scheduler = StepLR(ranker_optimizer, step_size=10, gamma=0.99)
     BATCH_SIZE = 16
     highest_bleu = -1
@@ -223,7 +225,7 @@ if __name__ == '__main__':
             neg_sample_records = negative_sampleing(ranker_results,k=3)
             results_with_poicy_scores = transform_policy_score(neg_sample_records)
             policy = PolicySampler(results_with_poicy_scores)
-            sampled_records = policy.sample_per_question(1)
+            sampled_records = policy.sample_per_question(3)
             # answer extraction 
             reader_input = [x for x in sampled_records if x['selected_cnt']>0]
             reader_predictions = reader.evaluate_on_records(reader_input,batch_size=BATCH_SIZE)
@@ -231,12 +233,12 @@ if __name__ == '__main__':
 
 
             for ri,pred in enumerate(reader_predictions):
-                 #pred_tokens = tokenizer.tokenize(pred['span'])
-                 #reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
+                 pred_tokens = tokenizer.tokenize(pred['span'])
+                 reward = max([ reward_function_word_overlap(pred_tokens,tokenizer.tokenize(answer)) for answer in pred['answers']])
                  if pred['answer_docs'][0] == pred['doc_id']:
-                     reward =  1
+                     reward+=1
                  else:
-                     reward = -1
+                     reward-=1
                  pred['reward'] = reward
             #.... id not equals of dicts in reader_predictions and reader_input
 
@@ -278,8 +280,9 @@ if __name__ == '__main__':
                 selected_cnt_t = torch.tensor(ranker_batch.selected_cnt).to(ranker.device)
                 ranker_probs_1 = ranker.predict_score_one_batch(ranker_batch)
                 ranker_probs = group_normalize(ranker_probs_1,group_t)
-                rewards = rewards[selected_cnt_t >0]
-                ranker_probs = ranker_probs[selected_cnt_t >0]
+                select_indexs = torch.tensor( list(itertools.chain(*[ [ ti for _ in  range(selected_cnt_t[ti].item())]   for ti in range(len(ranker_probs))])) ,device=ranker.device)
+                rewards = rewards[select_indexs]
+                ranker_probs = ranker_probs[select_indexs]
                 assert torch.all(ranker_probs >0) and  torch.all(ranker_probs <=1)
                 #print('rank scores')
                 #print(ranker_probs_1[selected_cnt_t.detach().cpu().numpy() >0])
@@ -325,21 +328,21 @@ if __name__ == '__main__':
         #here must let ranker to select paragraph to evaluate the effect of policy gradient
         reader.model = reader.model.eval()
         ranker.model = ranker.model.eval()
-        #para_selector = BertRankerSelector(ranker)
-        #loader = DureaderLoader(DEV_PATH,para_selector,sample_fields=['question','answers','question_id','question_type'])
-        #_preds = reader.evaluate_on_records(loader.sample_list,batch_size=64)
-        #_preds = group_dict_list(_preds,'question_id')
-        #pred_answers  = MaxAllJudger().judge(_preds)
-        #evaluate_result = evaluate_mrc_bidaf(pred_answers)
+        para_selector = BertRankerSelector(ranker)
+        loader = DureaderLoader(DEV_PATH,para_selector,sample_fields=['question','answers','question_id','question_type'])
+        _preds = reader.evaluate_on_records(loader.sample_list,batch_size=64)
+        _preds = group_dict_list(_preds,'question_id')
+        pred_answers  = MaxAllJudger().judge(_preds)
+        evaluate_result = evaluate_mrc_bidaf(pred_answers)
         print('evaluate ranker')
         evaluate_dureader_ranker(DEV_PATH,ranker,64,print_detail=True)
         reader.model = reader.model.train()
         ranker.model = ranker.model.train()
-        #if evaluate_result['Bleu-4'] >  highest_bleu:
-        #    print('%.3f %.3f'%(evaluate_result['Bleu-4'],highest_bleu))
-        #    highest_bleu = evaluate_result['Bleu-4']
-        #    model_dir = experiment.model_dir
-        #    print('save models with bleu %.3f to %s'%(highest_bleu,model_dir))
-        #    torch.save(ranker.model.state_dict(),'%s/ranker.bin'%(model_dir))
-        #    torch.save(reader.model.state_dict(),'%s/reader.bin'%(model_dir))
+        if evaluate_result['Bleu-4'] >  highest_bleu:
+            print('%.3f %.3f'%(evaluate_result['Bleu-4'],highest_bleu))
+            highest_bleu = evaluate_result['Bleu-4']
+            model_dir = experiment.model_dir
+            print('save models with bleu %.3f to %s'%(highest_bleu,model_dir))
+            torch.save(ranker.model.state_dict(),'%s/ranker.bin'%(model_dir))
+            torch.save(reader.model.state_dict(),'%s/reader.bin'%(model_dir))
         print('- - '*20)
