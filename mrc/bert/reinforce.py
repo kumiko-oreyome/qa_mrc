@@ -174,7 +174,8 @@ if __name__ == '__main__':
     from qa.eval import evaluate_dureader_ranker
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
-    #TRAIN_PATH = ["./data/devset/search.dev.json"]
+    #TRAIN_PATH = ["./data/trainset/search.train.json"]
+    #DEV_PATH = ["./data/devset/search.dev.json"]
     TRAIN_PATH = "./data/demo/devset/search.dev.2.json"
     #TRAIN_PATH = "./data/trainset/search.train.1000.json"
     DEV_PATH = TRAIN_PATH
