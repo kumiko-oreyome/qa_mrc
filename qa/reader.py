@@ -88,7 +88,7 @@ class BertReader():
 
 
     def get_batchiter(self,records,train_flag=False,batch_size=64):
-        dataset  = BertRCDataset(records,self.config.MAX_QUERY_LEN,self.config.MAX_SEQ_LEN,train_flag=train_flag,device=self.device)
+        dataset  = BertRCDataset(records,self.tokenizer,self.config.MAX_QUERY_LEN,self.config.MAX_SEQ_LEN,train_flag=train_flag,device=self.device)
         iterator = dataset.make_batchiter(batch_size=batch_size)
         return iterator
 

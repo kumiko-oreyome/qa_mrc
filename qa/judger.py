@@ -33,7 +33,6 @@ class LambdaJudger():
         ret = {}
         for q,v in documents.items():
             ret[q] = []
-            max_score = -100000
             for d in v :
                 d['judger_score'] = self.score_func(d)
             l= sorted(v,key=lambda x: -1*x['judger_score'])

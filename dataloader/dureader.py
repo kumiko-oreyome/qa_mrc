@@ -156,11 +156,11 @@ class RecordDataset(object):
 
 class BertRCDataset( RecordDataset):  
     bert_field = Field(batch_first=True, sequential=True, tokenize=lambda ids:[int(i) for i in ids],use_vocab=False, pad_token=0) 
-    def __init__(self,sample_list,max_query_length,max_seq_length,train_flag=False,device=None):
+    def __init__(self,sample_list,tokenizer,max_query_length,max_seq_length,train_flag=False,device=None):
         super(BertRCDataset,self).__init__(sample_list,device)
         self.max_query_length = max_query_length
         self.max_seq_length = max_seq_length
-        self.tokenizer = BertTokenizer('%s/vocab.txt'%('./pretrained/chinese_wwm_ext_pytorch'))
+        self.tokenizer = tokenizer
         self.cvt = BertInputConverter(self.tokenizer)
         self.train_flag = train_flag
         self.add_bert_fields()
