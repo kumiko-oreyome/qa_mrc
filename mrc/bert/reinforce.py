@@ -209,7 +209,7 @@ if __name__ == '__main__':
     highest_bleu = -1
     print('ranker performance before traning')
     #ranker.model = ranker.model.eval()
-    #evaluate_dureader_ranker(DEV_PATH,ranker,BATCH_SIZE,print_detail=print_detail)
+    #evaluate_dureader_ranker(DEV_PATH,ranker,64,print_detail=False)
 
 
     for epcoch in range(EPOCH):
@@ -331,12 +331,12 @@ if __name__ == '__main__':
         ranker.model = ranker.model.eval()
         para_selector = BertRankerSelector(ranker)
         loader = DureaderLoader(DEV_PATH,para_selector,sample_fields=['question','answers','question_id','question_type'])
-        _preds = reader.evaluate_on_records(loader.sample_list,batch_size=64)
+        _preds = reader.evaluate_on_records(loader.sample_list,batch_size=128)
         _preds = group_dict_list(_preds,'question_id')
         pred_answers  = MaxAllJudger().judge(_preds)
         evaluate_result = evaluate_mrc_bidaf(pred_answers)
         print('evaluate ranker')
-        evaluate_dureader_ranker(DEV_PATH,ranker,64,print_detail=True)
+        evaluate_dureader_ranker(DEV_PATH,ranker,128,print_detail=True)
         reader.model = reader.model.train()
         ranker.model = ranker.model.train()
         if evaluate_result['Bleu-4'] >  highest_bleu:
