@@ -54,7 +54,7 @@ def predict_on_batch(model,dataloader,sigmoid=False):
         for i,batch_X in enumerate(dataloader):
             if (residual_num) > 5000:
                 residual_num-=5000
-                print('ranker predict on  %d th example ....'%(example_num))
+                #print('ranker predict on  %d th example ....'%(example_num))
             match_scores = model(batch_X[0],batch_X[1],batch_X[2])
             if sigmoid:
                 match_scores  = torch.nn.Sigmoid()(match_scores)
