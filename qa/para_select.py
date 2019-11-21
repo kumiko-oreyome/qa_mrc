@@ -53,7 +53,10 @@ class BertRankerSelector(ParagraphSelector):
     def __init__(self,ranker,k=1):
         super().__init__(k)
         if type(ranker)==str:
-            self.ranker = qa_ranker.RankerFactory.from_exp_name(ranker)
+            try:
+                self.ranker = qa_ranker.RankerFactory.from_exp_name(ranker)
+            except:
+                self.ranker = qa_ranker.RankerFactory.from_config_path(ranker)
         else:
             self.ranker = ranker
             
