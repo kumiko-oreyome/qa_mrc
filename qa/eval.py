@@ -276,7 +276,7 @@ if __name__ == '__main__':
     #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
     #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
     #test_dureader_bert_rc(DUREADER_DEV_ALL,'reader/bert_default',para_selection_method={'class':'tfidf','kwargs':{}},decoder_dict={'class':'default','kwargs':{'k':1}})
-    #test_dureader_bert_rc(HEALTH_5_FILE,'reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    test_dureader_bert_rc('./data/dataset.ptag.jsonl','reader/bert_default',{'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
 
     #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method='most_related_para',decoder_dict={'class':'default','kwargs':{'k':1}})
     #show_prediction_for_dureader('./data/demo/devset/search.dev.json','prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
@@ -288,4 +288,4 @@ if __name__ == '__main__':
     #show_mrc_prediction_for_collected_qa_dataset('./data/debug.paragraphs.jsonl','debug_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
     #show_mrc_prediction_for_collected_qa_dataset('./data/chiu_question.paragraphs.jsonl','chiu_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc'}},decoder_dict={'class':'default','kwargs':{'k':1}})
     #show_mrc_prediction_for_collected_qa_dataset('./data/chiu_common_health.paragraphs.ptag.jsonl','./chiu_common_health_mrc_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':2}},decoder_dict={'class':'default','kwargs':{'k':2}})
-    show_mrc_prediction_for_collected_qa_dataset(HEALTH_5_FILE,'./health_dataset5_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':1}},decoder_dict={'class':'default','kwargs':{'k':1}})
+    #show_mrc_prediction_for_collected_qa_dataset(HEALTH_5_FILE,'./health_dataset5_prediction.txt','reader/bert_default',para_selection_method={'class':'bert_ranker','kwargs':{'ranker':'pointwise/answer_doc','k':1}},decoder_dict={'class':'default','kwargs':{'k':1}})

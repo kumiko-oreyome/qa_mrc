@@ -7,7 +7,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def get_bert_optimizer(model,lr,t_total):
+def get_bert_optimizer(model,lr,t_total,num_data,batch_size,epoch_num,gradient_accumulation_steps = 8):
+    t_total = int(num_data / gradient_accumulation_steps / batch_size) * epoch_num
     param_optimizer = list(model.named_parameters())
     param_optimizer = [n for n in param_optimizer if 'pooler' not in n[0]]
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -15,7 +16,7 @@ def get_bert_optimizer(model,lr,t_total):
             {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
             ]
-    optimizer = BertAdam(optimizer_grouped_parameters, lr=args.learning_rate, warmup=0.1, t_total=args.num_train_optimization_steps)
+    optimizer = BertAdam(optimizer_grouped_parameters, lr=lr, warmup=0.1, t_total=t_total)
     return optimizer
 
 def warmup_cosine(x, warmup=0.002):

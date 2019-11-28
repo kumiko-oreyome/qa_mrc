@@ -19,6 +19,7 @@ from common.textutil import Tokenizer
 from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR
 import itertools
+from bert.optimizer import get_bert_optimizer
 
 ##ls
 # load data
@@ -175,16 +176,16 @@ if __name__ == '__main__':
     experiment = Experiment('reader/pg')
     #TRAIN_PATH = ["./data/trainset/search.train.json","./data/trainset/zhidao.train.json"]
     #TRAIN_PATH = ["./data/trainset/search.train.json"]
-    #DEV_PATH = ["./data/devset/search.dev.json"]
+    #DEV_PATH = ["./data/devset/search.dev.json","./data/devset/zhidao.dev.json"]
     TRAIN_PATH = "./data/demo/devset/search.dev.2.json"
     #TRAIN_PATH = "./data/trainset/search.train.1000.json"
     DEV_PATH = TRAIN_PATH
 
     READER_EXP_NAME = 'reader/bert_default'
     RANKER_EXP_NAME = 'pointwise/answer_doc'
-    EPOCH = 50
+    EPOCH = 4
     print_detail = False
-    TRAIN_READER= False
+    TRAIN_READER= True
 
     train_loader = DureaderLoader(TRAIN_PATH ,'most_related_para',sample_fields=['question','answers','question_id','question_type','answer_docs','answer_spans'],\
         doc_fields=['segmented_paragraphs'])
@@ -202,7 +203,9 @@ if __name__ == '__main__':
     print('load reader')
     reader = ReaderFactory.from_exp_name(experiment.config.reader_name,eval_flag=False)
     tokenizer =  Tokenizer()
-    reader_optimizer =  SGD(reader.model.parameters(), lr=0.0001, momentum=0.9)
+    gradient_accumulation_steps = 8
+    reader_optimizer =  get_bert_optimizer(reader.model,0.00005,187818,4,EPOCH,gradient_accumulation_steps)
+    #reader_optimizer =  get_bert_optimizer(reader.model,0.00001,100,4,EPOCH,gradient_accumulation_steps)
     ranker_optimizer = SGD(ranker.model.parameters(), lr=0.00005, momentum=0.9)
     lr_scheduler = StepLR(ranker_optimizer, step_size=10, gamma=0.99)
     BATCH_SIZE = 16
@@ -217,6 +220,7 @@ if __name__ == '__main__':
         print('start of epoch %d'%(epcoch))
         reader_loss,ranker_loss,reward_tracer,ranker_prob_tracer = MetricTracer(),MetricTracer(),MetricTracer(),MetricTracer()
         print('start training loop')
+        reader_train_steps = 0
         for i,rl_samples in enumerate(ReinforceBatchIter(train_loader.sample_list).get_batchiter(30)):
             if (i+1) % 100 == 0 :
                 print('reinfroce loop evaluate on %d batch'%(i))
@@ -312,12 +316,14 @@ if __name__ == '__main__':
                 train_samples = [ sample for sample in rl_samples if sample["doc_id"] == sample['answer_docs'][0]]
                 train_batch = reader.get_batchiter(train_samples,train_flag=True,batch_size=4) ###... reader batch size must be small ...
                 for batch in train_batch:
+                    reader_train_steps+=1
                     start_pos,end_pos = tuple(zip(*batch.bert_span))
                     start_pos_t,end_pos_t = torch.tensor(start_pos,device=reader.device, dtype=torch.long),torch.tensor(end_pos,device=reader.device, dtype=torch.long)
                     loss,start_logits, end_logits  = reader.model( batch.input_ids, token_type_ids= batch.segment_ids, attention_mask= batch.input_mask, start_positions=start_pos_t, end_positions=end_pos_t)
                     loss.backward()
-                    reader_optimizer.step()
-                    reader_optimizer.zero_grad()
+                    if (reader_train_steps+1)%gradient_accumulation_steps == 0:
+                        reader_optimizer.step()
+                        reader_optimizer.zero_grad()
                     reader_loss.add_record(loss.item()) 
                     #lr_scheduler.step()
         print('END OF EPOCH: %d'%(epcoch))
